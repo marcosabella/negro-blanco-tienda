@@ -69,10 +69,27 @@ export function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
 
   const onSubmit = async (data: ClienteFormData) => {
     try {
+      // Transform form data to match Cliente interface
+      const clienteData: Omit<Cliente, 'id' | 'created_at' | 'updated_at'> = {
+        nombre: data.nombre,
+        apellido: data.apellido,
+        cuit: data.cuit,
+        calle: data.calle,
+        numero: data.numero,
+        codigo_postal: data.codigo_postal,
+        localidad: data.localidad,
+        provincia: data.provincia,
+        situacion_afip: data.situacion_afip,
+        tipo_persona: data.tipo_persona,
+        telefono: data.telefono || null,
+        email: data.email || null,
+        ingresos_brutos: data.ingresos_brutos || null,
+      };
+
       if (cliente?.id) {
-        await updateCliente.mutateAsync({ id: cliente.id, ...data });
+        await updateCliente.mutateAsync({ id: cliente.id, ...clienteData });
       } else {
-        await createCliente.mutateAsync(data);
+        await createCliente.mutateAsync(clienteData);
       }
       onSuccess?.();
     } catch (error) {
