@@ -71,6 +71,66 @@ export type Database = {
         }
         Relationships: []
       }
+      proveedores: {
+        Row: {
+          apellido: string | null
+          calle: string
+          codigo_postal: string
+          created_at: string
+          cuit: string
+          email: string | null
+          id: string
+          ingresos_brutos: string | null
+          localidad: string
+          nombre: string
+          numero: string
+          provincia: string
+          razon_social: string | null
+          situacion_afip: string
+          telefono: string | null
+          tipo_persona: string
+          updated_at: string
+        }
+        Insert: {
+          apellido?: string | null
+          calle: string
+          codigo_postal: string
+          created_at?: string
+          cuit: string
+          email?: string | null
+          id?: string
+          ingresos_brutos?: string | null
+          localidad: string
+          nombre: string
+          numero: string
+          provincia: string
+          razon_social?: string | null
+          situacion_afip: string
+          telefono?: string | null
+          tipo_persona: string
+          updated_at?: string
+        }
+        Update: {
+          apellido?: string | null
+          calle?: string
+          codigo_postal?: string
+          created_at?: string
+          cuit?: string
+          email?: string | null
+          id?: string
+          ingresos_brutos?: string | null
+          localidad?: string
+          nombre?: string
+          numero?: string
+          provincia?: string
+          razon_social?: string | null
+          situacion_afip?: string
+          telefono?: string | null
+          tipo_persona?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

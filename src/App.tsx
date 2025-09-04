@@ -7,6 +7,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import Index from "./pages/Index";
 import Clientes from "./pages/Clientes";
+import Proveedores from "./pages/Proveedores";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/clientes" element={<Clientes />} />
+                  <Route path="/proveedores" element={<Proveedores />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </main>
