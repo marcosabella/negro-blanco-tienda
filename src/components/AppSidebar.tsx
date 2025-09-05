@@ -1,4 +1,4 @@
-import { Users, Truck } from "lucide-react"
+import { Users, Truck, Package } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 
 import {
@@ -16,6 +16,7 @@ import {
 const menuItems = [
   { title: "Clientes", url: "/clientes", icon: Users },
   { title: "Proveedores", url: "/proveedores", icon: Truck },
+  { title: "Productos", url: "/productos", icon: Package },
 ]
 
 export function AppSidebar() {
