@@ -71,6 +71,122 @@ export type Database = {
         }
         Relationships: []
       }
+      marcas: {
+        Row: {
+          created_at: string
+          descripcion: string | null
+          id: string
+          nombre: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          nombre: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          nombre?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      productos: {
+        Row: {
+          cod_barras: string | null
+          cod_producto: string
+          created_at: string
+          descripcion: string
+          id: string
+          marca_id: string
+          observaciones: string | null
+          porcentaje_descuento: number
+          porcentaje_iva: number
+          porcentaje_utilidad: number
+          precio_costo: number
+          precio_venta: number | null
+          proveedor_id: string
+          rubro_id: string
+          stock: number
+          subrubro_id: string
+          tipo_moneda: Database["public"]["Enums"]["tipo_moneda"]
+          updated_at: string
+        }
+        Insert: {
+          cod_barras?: string | null
+          cod_producto: string
+          created_at?: string
+          descripcion: string
+          id?: string
+          marca_id: string
+          observaciones?: string | null
+          porcentaje_descuento?: number
+          porcentaje_iva?: number
+          porcentaje_utilidad?: number
+          precio_costo?: number
+          precio_venta?: number | null
+          proveedor_id: string
+          rubro_id: string
+          stock?: number
+          subrubro_id: string
+          tipo_moneda?: Database["public"]["Enums"]["tipo_moneda"]
+          updated_at?: string
+        }
+        Update: {
+          cod_barras?: string | null
+          cod_producto?: string
+          created_at?: string
+          descripcion?: string
+          id?: string
+          marca_id?: string
+          observaciones?: string | null
+          porcentaje_descuento?: number
+          porcentaje_iva?: number
+          porcentaje_utilidad?: number
+          precio_costo?: number
+          precio_venta?: number | null
+          proveedor_id?: string
+          rubro_id?: string
+          stock?: number
+          subrubro_id?: string
+          tipo_moneda?: Database["public"]["Enums"]["tipo_moneda"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "productos_marca_id_fkey"
+            columns: ["marca_id"]
+            isOneToOne: false
+            referencedRelation: "marcas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "productos_proveedor_id_fkey"
+            columns: ["proveedor_id"]
+            isOneToOne: false
+            referencedRelation: "proveedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "productos_rubro_id_fkey"
+            columns: ["rubro_id"]
+            isOneToOne: false
+            referencedRelation: "rubros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "productos_subrubro_id_fkey"
+            columns: ["subrubro_id"]
+            isOneToOne: false
+            referencedRelation: "subrubros"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proveedores: {
         Row: {
           apellido: string | null
@@ -131,6 +247,65 @@ export type Database = {
         }
         Relationships: []
       }
+      rubros: {
+        Row: {
+          created_at: string
+          descripcion: string | null
+          id: string
+          nombre: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          nombre: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          nombre?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      subrubros: {
+        Row: {
+          created_at: string
+          descripcion: string | null
+          id: string
+          nombre: string
+          rubro_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          nombre: string
+          rubro_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          nombre?: string
+          rubro_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subrubros_rubro_id_fkey"
+            columns: ["rubro_id"]
+            isOneToOne: false
+            referencedRelation: "rubros"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -139,7 +314,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      tipo_moneda: "ARS" | "USD" | "USD_BLUE"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -266,6 +441,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      tipo_moneda: ["ARS", "USD", "USD_BLUE"],
+    },
   },
 } as const
