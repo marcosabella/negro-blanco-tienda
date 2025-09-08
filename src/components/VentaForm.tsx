@@ -42,10 +42,19 @@ export const VentaForm = ({ venta, onSuccess }: VentaFormProps) => {
   const { productos } = useProductos();
   
   const clientes = clientesQuery.data || [];
+
+  // Filter clients based on search term
+  const filteredClientes = clientes.filter(cliente =>
+    cliente.nombre.toLowerCase().includes(clientSearchTerm.toLowerCase()) ||
+    cliente.apellido.toLowerCase().includes(clientSearchTerm.toLowerCase()) ||
+    cliente.cuit.toLowerCase().includes(clientSearchTerm.toLowerCase()) ||
+    `${cliente.nombre} ${cliente.apellido}`.toLowerCase().includes(clientSearchTerm.toLowerCase())
+  );
   
   const [items, setItems] = useState<(Omit<VentaItem, "id" | "venta_id" | "created_at" | "updated_at"> & { tempId: string })[]>([]);
   const [productSearchOpen, setProductSearchOpen] = useState(false);
   const [clientSearchOpen, setClientSearchOpen] = useState(false);
+  const [clientSearchTerm, setClientSearchTerm] = useState("");
   const [selectedClient, setSelectedClient] = useState<{ id: string; nombre: string; apellido: string } | null>(null);
 
   const form = useForm<z.infer<typeof ventaSchema>>({
@@ -226,42 +235,63 @@ export const VentaForm = ({ venta, onSuccess }: VentaFormProps) => {
                           <DialogHeader>
                             <DialogTitle>Seleccionar Cliente</DialogTitle>
                           </DialogHeader>
-                          <div className="space-y-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="w-full justify-start"
-                              onClick={() => {
-                                setSelectedClient(null);
-                                form.setValue("cliente_nombre", "Consumidor Final");
-                                form.setValue("cliente_id", undefined);
-                                setClientSearchOpen(false);
-                              }}
-                            >
-                              Consumidor Final
-                            </Button>
-                            {clientes.map((cliente) => (
+                          <div className="space-y-4">
+                            <div className="relative">
+                              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                placeholder="Buscar por nombre, apellido o CUIT..."
+                                value={clientSearchTerm}
+                                onChange={(e) => setClientSearchTerm(e.target.value)}
+                                className="pl-8"
+                              />
+                            </div>
+                            <div className="space-y-2 max-h-60 overflow-y-auto">
                               <Button
-                                key={cliente.id}
                                 type="button"
                                 variant="outline"
                                 className="w-full justify-start"
                                 onClick={() => {
-                                  if (cliente.id) {
-                                    setSelectedClient({
-                                      id: cliente.id,
-                                      nombre: cliente.nombre,
-                                      apellido: cliente.apellido
-                                    });
-                                    form.setValue("cliente_nombre", `${cliente.nombre} ${cliente.apellido}`);
-                                    form.setValue("cliente_id", cliente.id);
-                                    setClientSearchOpen(false);
-                                  }
+                                  setSelectedClient(null);
+                                  form.setValue("cliente_nombre", "Consumidor Final");
+                                  form.setValue("cliente_id", undefined);
+                                  setClientSearchOpen(false);
+                                  setClientSearchTerm("");
                                 }}
                               >
-                                {cliente.nombre} {cliente.apellido} - {cliente.cuit}
+                                Consumidor Final
                               </Button>
-                            ))}
+                              {filteredClientes.map((cliente) => (
+                                <Button
+                                  key={cliente.id}
+                                  type="button"
+                                  variant="outline"
+                                  className="w-full justify-start"
+                                  onClick={() => {
+                                    if (cliente.id) {
+                                      setSelectedClient({
+                                        id: cliente.id,
+                                        nombre: cliente.nombre,
+                                        apellido: cliente.apellido
+                                      });
+                                      form.setValue("cliente_nombre", `${cliente.nombre} ${cliente.apellido}`);
+                                      form.setValue("cliente_id", cliente.id);
+                                      setClientSearchOpen(false);
+                                      setClientSearchTerm("");
+                                    }
+                                  }}
+                                >
+                                  <div className="text-left">
+                                    <div className="font-medium">{cliente.nombre} {cliente.apellido}</div>
+                                    <div className="text-sm text-muted-foreground">CUIT: {cliente.cuit}</div>
+                                  </div>
+                                </Button>
+                              ))}
+                              {filteredClientes.length === 0 && clientSearchTerm && (
+                                <p className="text-center text-muted-foreground py-4">
+                                  No se encontraron clientes que coincidan con la búsqueda
+                                </p>
+                              )}
+                            </div>
                           </div>
                         </DialogContent>
                       </Dialog>
