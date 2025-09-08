@@ -306,6 +306,119 @@ export type Database = {
           },
         ]
       }
+      venta_items: {
+        Row: {
+          cantidad: number
+          created_at: string
+          id: string
+          monto_iva: number
+          porcentaje_iva: number
+          precio_unitario: number
+          producto_id: string
+          subtotal: number
+          total: number
+          updated_at: string
+          venta_id: string
+        }
+        Insert: {
+          cantidad?: number
+          created_at?: string
+          id?: string
+          monto_iva?: number
+          porcentaje_iva?: number
+          precio_unitario: number
+          producto_id: string
+          subtotal?: number
+          total?: number
+          updated_at?: string
+          venta_id: string
+        }
+        Update: {
+          cantidad?: number
+          created_at?: string
+          id?: string
+          monto_iva?: number
+          porcentaje_iva?: number
+          precio_unitario?: number
+          producto_id?: string
+          subtotal?: number
+          total?: number
+          updated_at?: string
+          venta_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venta_items_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venta_items_venta_id_fkey"
+            columns: ["venta_id"]
+            isOneToOne: false
+            referencedRelation: "ventas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ventas: {
+        Row: {
+          cliente_id: string | null
+          cliente_nombre: string | null
+          created_at: string
+          fecha_venta: string
+          id: string
+          numero_comprobante: string
+          observaciones: string | null
+          subtotal: number
+          tipo_comprobante: Database["public"]["Enums"]["tipo_comprobante"]
+          tipo_pago: Database["public"]["Enums"]["tipo_pago"]
+          total: number
+          total_iva: number
+          updated_at: string
+        }
+        Insert: {
+          cliente_id?: string | null
+          cliente_nombre?: string | null
+          created_at?: string
+          fecha_venta?: string
+          id?: string
+          numero_comprobante: string
+          observaciones?: string | null
+          subtotal?: number
+          tipo_comprobante?: Database["public"]["Enums"]["tipo_comprobante"]
+          tipo_pago?: Database["public"]["Enums"]["tipo_pago"]
+          total?: number
+          total_iva?: number
+          updated_at?: string
+        }
+        Update: {
+          cliente_id?: string | null
+          cliente_nombre?: string | null
+          created_at?: string
+          fecha_venta?: string
+          id?: string
+          numero_comprobante?: string
+          observaciones?: string | null
+          subtotal?: number
+          tipo_comprobante?: Database["public"]["Enums"]["tipo_comprobante"]
+          tipo_pago?: Database["public"]["Enums"]["tipo_pago"]
+          total?: number
+          total_iva?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ventas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -314,7 +427,23 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      tipo_comprobante:
+        | "factura_a"
+        | "factura_b"
+        | "factura_c"
+        | "nota_credito_a"
+        | "nota_credito_b"
+        | "nota_credito_c"
+        | "nota_debito_a"
+        | "nota_debito_b"
+        | "nota_debito_c"
+        | "recibo_a"
+        | "recibo_b"
+        | "recibo_c"
+        | "ticket_fiscal"
+        | "factura_exportacion"
       tipo_moneda: "ARS" | "USD" | "USD_BLUE"
+      tipo_pago: "contado" | "transferencia" | "tarjeta" | "cheque" | "cta_cte"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -442,7 +571,24 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      tipo_comprobante: [
+        "factura_a",
+        "factura_b",
+        "factura_c",
+        "nota_credito_a",
+        "nota_credito_b",
+        "nota_credito_c",
+        "nota_debito_a",
+        "nota_debito_b",
+        "nota_debito_c",
+        "recibo_a",
+        "recibo_b",
+        "recibo_c",
+        "ticket_fiscal",
+        "factura_exportacion",
+      ],
       tipo_moneda: ["ARS", "USD", "USD_BLUE"],
+      tipo_pago: ["contado", "transferencia", "tarjeta", "cheque", "cta_cte"],
     },
   },
 } as const

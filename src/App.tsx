@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Clientes from "./pages/Clientes";
 import Proveedores from "./pages/Proveedores";
 import Productos from "./pages/Productos";
+import Ventas from "./pages/Ventas";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const App = () => (
                   <Route path="/clientes" element={<Clientes />} />
                   <Route path="/proveedores" element={<Proveedores />} />
                   <Route path="/productos" element={<Productos />} />
+                  <Route path="/ventas" element={<Ventas />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </main>
