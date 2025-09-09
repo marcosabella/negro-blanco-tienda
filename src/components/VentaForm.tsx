@@ -43,6 +43,12 @@ export const VentaForm = ({ venta, onSuccess }: VentaFormProps) => {
   
   const clientes = clientesQuery.data || [];
 
+  const [items, setItems] = useState<(Omit<VentaItem, "id" | "venta_id" | "created_at" | "updated_at"> & { tempId: string })[]>([]);
+  const [productSearchOpen, setProductSearchOpen] = useState(false);
+  const [clientSearchOpen, setClientSearchOpen] = useState(false);
+  const [clientSearchTerm, setClientSearchTerm] = useState("");
+  const [selectedClient, setSelectedClient] = useState<{ id: string; nombre: string; apellido: string } | null>(null);
+
   // Filter clients based on search term
   const filteredClientes = clientes.filter(cliente =>
     cliente.nombre.toLowerCase().includes(clientSearchTerm.toLowerCase()) ||
@@ -50,12 +56,6 @@ export const VentaForm = ({ venta, onSuccess }: VentaFormProps) => {
     cliente.cuit.toLowerCase().includes(clientSearchTerm.toLowerCase()) ||
     `${cliente.nombre} ${cliente.apellido}`.toLowerCase().includes(clientSearchTerm.toLowerCase())
   );
-  
-  const [items, setItems] = useState<(Omit<VentaItem, "id" | "venta_id" | "created_at" | "updated_at"> & { tempId: string })[]>([]);
-  const [productSearchOpen, setProductSearchOpen] = useState(false);
-  const [clientSearchOpen, setClientSearchOpen] = useState(false);
-  const [clientSearchTerm, setClientSearchTerm] = useState("");
-  const [selectedClient, setSelectedClient] = useState<{ id: string; nombre: string; apellido: string } | null>(null);
 
   const form = useForm<z.infer<typeof ventaSchema>>({
     resolver: zodResolver(ventaSchema),
