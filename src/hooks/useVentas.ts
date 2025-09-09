@@ -54,6 +54,22 @@ export const useVentas = () => {
         if (itemsError) throw itemsError;
       }
 
+      // If payment type is "cta_cte" and there's a cliente_id, create debit movement
+      if (venta.tipo_pago === 'cta_cte' && venta.cliente_id) {
+        const { error: cuentaError } = await supabase
+          .from("cuenta_corriente")
+          .insert([{
+            cliente_id: venta.cliente_id,
+            tipo_movimiento: 'debito',
+            monto: venta.total,
+            concepto: 'venta_credito',
+            venta_id: ventaData.id,
+            fecha_movimiento: venta.fecha_venta,
+          }]);
+
+        if (cuentaError) throw cuentaError;
+      }
+
       return ventaData;
     },
     onSuccess: () => {

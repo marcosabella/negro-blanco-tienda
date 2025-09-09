@@ -71,6 +71,60 @@ export type Database = {
         }
         Relationships: []
       }
+      cuenta_corriente: {
+        Row: {
+          cliente_id: string
+          concepto: string
+          created_at: string
+          fecha_movimiento: string
+          id: string
+          monto: number
+          observaciones: string | null
+          tipo_movimiento: string
+          updated_at: string
+          venta_id: string | null
+        }
+        Insert: {
+          cliente_id: string
+          concepto: string
+          created_at?: string
+          fecha_movimiento?: string
+          id?: string
+          monto?: number
+          observaciones?: string | null
+          tipo_movimiento: string
+          updated_at?: string
+          venta_id?: string | null
+        }
+        Update: {
+          cliente_id?: string
+          concepto?: string
+          created_at?: string
+          fecha_movimiento?: string
+          id?: string
+          monto?: number
+          observaciones?: string | null
+          tipo_movimiento?: string
+          updated_at?: string
+          venta_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_cuenta_corriente_cliente"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_cuenta_corriente_venta"
+            columns: ["venta_id"]
+            isOneToOne: false
+            referencedRelation: "ventas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marcas: {
         Row: {
           created_at: string
