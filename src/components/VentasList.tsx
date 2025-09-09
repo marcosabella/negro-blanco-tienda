@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Eye, Trash2 } from "lucide-react";
+import { Plus, Search, Eye, Edit, Trash2 } from "lucide-react";
 import { useVentas } from "@/hooks/useVentas";
 import { VentaForm } from "./VentaForm";
 import { Venta, TIPOS_PAGO, TIPOS_COMPROBANTE } from "@/types/venta";
@@ -14,6 +14,7 @@ import { format } from "date-fns";
 export const VentasList = () => {
   const { ventas, isLoading, deleteVenta } = useVentas();
   const [showForm, setShowForm] = useState(false);
+  const [editingVenta, setEditingVenta] = useState<Venta | null>(null);
   const [selectedVenta, setSelectedVenta] = useState<Venta | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -53,7 +54,10 @@ export const VentasList = () => {
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>Lista de Ventas</CardTitle>
-            <Button onClick={() => setShowForm(true)}>
+            <Button onClick={() => {
+              setEditingVenta(null);
+              setShowForm(true);
+            }}>
               <Plus className="mr-2 h-4 w-4" />
               Nueva Venta
             </Button>
@@ -123,6 +127,16 @@ export const VentasList = () => {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => {
+                            setEditingVenta(venta);
+                            setShowForm(true);
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => deleteVenta(venta.id!)}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -143,12 +157,21 @@ export const VentasList = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={showForm} onOpenChange={setShowForm}>
+      <Dialog open={showForm} onOpenChange={(open) => {
+        setShowForm(open);
+        if (!open) setEditingVenta(null);
+      }}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Nueva Venta</DialogTitle>
+            <DialogTitle>{editingVenta ? "Editar Venta" : "Nueva Venta"}</DialogTitle>
           </DialogHeader>
-          <VentaForm onSuccess={() => setShowForm(false)} />
+          <VentaForm 
+            venta={editingVenta} 
+            onSuccess={() => {
+              setShowForm(false);
+              setEditingVenta(null);
+            }} 
+          />
         </DialogContent>
       </Dialog>
 

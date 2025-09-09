@@ -37,17 +37,35 @@ interface VentaFormProps {
 }
 
 export const VentaForm = ({ venta, onSuccess }: VentaFormProps) => {
-  const { createVenta, isCreating } = useVentas();
+  const { createVenta, updateVenta, isCreating, isUpdating } = useVentas();
   const clientesQuery = useClientes();
   const { productos } = useProductos();
   
   const clientes = clientesQuery.data || [];
 
-  const [items, setItems] = useState<(Omit<VentaItem, "id" | "venta_id" | "created_at" | "updated_at"> & { tempId: string })[]>([]);
+  const [items, setItems] = useState<(Omit<VentaItem, "id" | "venta_id" | "created_at" | "updated_at"> & { tempId: string })[]>(
+    venta?.venta_items?.map(item => ({
+      tempId: crypto.randomUUID(),
+      producto_id: item.producto_id,
+      cantidad: item.cantidad,
+      precio_unitario: item.precio_unitario,
+      porcentaje_iva: item.porcentaje_iva,
+      monto_iva: item.monto_iva,
+      subtotal: item.subtotal,
+      total: item.total,
+      producto: item.producto,
+    })) || []
+  );
   const [productSearchOpen, setProductSearchOpen] = useState(false);
   const [clientSearchOpen, setClientSearchOpen] = useState(false);
   const [clientSearchTerm, setClientSearchTerm] = useState("");
-  const [selectedClient, setSelectedClient] = useState<{ id: string; nombre: string; apellido: string } | null>(null);
+  const [selectedClient, setSelectedClient] = useState<{ id: string; nombre: string; apellido: string } | null>(
+    venta?.cliente_id ? {
+      id: venta.cliente_id,
+      nombre: venta.cliente?.nombre || "",
+      apellido: venta.cliente?.apellido || ""
+    } : null
+  );
 
   // Filter clients based on search term
   const filteredClientes = clientes.filter(cliente =>
@@ -59,7 +77,14 @@ export const VentaForm = ({ venta, onSuccess }: VentaFormProps) => {
 
   const form = useForm<z.infer<typeof ventaSchema>>({
     resolver: zodResolver(ventaSchema),
-    defaultValues: {
+    defaultValues: venta ? {
+      fecha_venta: format(new Date(venta.fecha_venta), "yyyy-MM-dd'T'HH:mm"),
+      tipo_pago: venta.tipo_pago,
+      tipo_comprobante: venta.tipo_comprobante,
+      cliente_id: venta.cliente_id,
+      cliente_nombre: venta.cliente_nombre || "Consumidor Final",
+      observaciones: venta.observaciones || "",
+    } : {
       fecha_venta: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
       tipo_pago: "contado",
       tipo_comprobante: "ticket_fiscal",
@@ -109,10 +134,9 @@ export const VentaForm = ({ venta, onSuccess }: VentaFormProps) => {
 
   const onSubmit = (values: z.infer<typeof ventaSchema>) => {
     const { subtotal, totalIva, total } = calculateTotals();
-    const numeroComprobante = `${values.tipo_comprobante.toUpperCase()}-${Date.now()}`;
     
     const ventaData = {
-      numero_comprobante: numeroComprobante,
+      numero_comprobante: venta?.numero_comprobante || `${values.tipo_comprobante.toUpperCase()}-${Date.now()}`,
       fecha_venta: new Date(values.fecha_venta).toISOString(),
       tipo_pago: values.tipo_pago,
       tipo_comprobante: values.tipo_comprobante,
@@ -134,7 +158,11 @@ export const VentaForm = ({ venta, onSuccess }: VentaFormProps) => {
       total: item.total,
     }));
 
-    createVenta({ venta: ventaData, items: itemsData });
+    if (venta?.id) {
+      updateVenta({ ventaId: venta.id, venta: ventaData, items: itemsData });
+    } else {
+      createVenta({ venta: ventaData, items: itemsData });
+    }
     onSuccess();
   };
 
@@ -143,7 +171,7 @@ export const VentaForm = ({ venta, onSuccess }: VentaFormProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Nueva Venta</CardTitle>
+        <CardTitle>{venta ? "Editar Venta" : "Nueva Venta"}</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -401,8 +429,8 @@ export const VentaForm = ({ venta, onSuccess }: VentaFormProps) => {
               )}
             />
 
-            <Button type="submit" disabled={isCreating || items.length === 0}>
-              {isCreating ? "Guardando..." : "Guardar Venta"}
+            <Button type="submit" disabled={isCreating || isUpdating || items.length === 0}>
+              {isCreating || isUpdating ? "Guardando..." : venta ? "Actualizar Venta" : "Guardar Venta"}
             </Button>
           </form>
         </Form>

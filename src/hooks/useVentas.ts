@@ -72,6 +72,66 @@ export const useVentas = () => {
     },
   });
 
+  const updateVentaMutation = useMutation({
+    mutationFn: async ({ 
+      ventaId, 
+      venta, 
+      items 
+    }: { 
+      ventaId: string; 
+      venta: Omit<Venta, "id" | "created_at" | "updated_at">; 
+      items: Omit<VentaItem, "id" | "venta_id" | "created_at" | "updated_at">[] 
+    }) => {
+      // Update venta
+      const { data: ventaData, error: ventaError } = await supabase
+        .from("ventas")
+        .update(venta)
+        .eq("id", ventaId)
+        .select()
+        .single();
+
+      if (ventaError) throw ventaError;
+
+      // Delete existing items
+      const { error: deleteError } = await supabase
+        .from("venta_items")
+        .delete()
+        .eq("venta_id", ventaId);
+
+      if (deleteError) throw deleteError;
+
+      // Insert new items
+      if (items.length > 0) {
+        const itemsWithVentaId = items.map(item => ({
+          ...item,
+          venta_id: ventaId
+        }));
+
+        const { error: itemsError } = await supabase
+          .from("venta_items")
+          .insert(itemsWithVentaId);
+
+        if (itemsError) throw itemsError;
+      }
+
+      return ventaData;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ventas"] });
+      toast({
+        title: "Éxito",
+        description: "Venta actualizada correctamente",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Error al actualizar venta: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
   const deleteVentaMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("ventas").delete().eq("id", id);
@@ -98,8 +158,10 @@ export const useVentas = () => {
     isLoading,
     error,
     createVenta: createVentaMutation.mutate,
+    updateVenta: updateVentaMutation.mutate,
     deleteVenta: deleteVentaMutation.mutate,
     isCreating: createVentaMutation.isPending,
+    isUpdating: updateVentaMutation.isPending,
     isDeleting: deleteVentaMutation.isPending,
   };
 };
