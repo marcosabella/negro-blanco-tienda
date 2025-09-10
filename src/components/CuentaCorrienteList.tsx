@@ -17,7 +17,8 @@ export const CuentaCorrienteList = () => {
     movimientos, 
     isLoading, 
     deleteMovimiento, 
-    getResumenCuentaCorreinte 
+    getResumenCuentaCorreinte,
+    getMovimientosByCliente 
   } = useCuentaCorriente();
   
   const { data: resumen = [], isLoading: isLoadingResumen } = getResumenCuentaCorreinte();
@@ -25,6 +26,14 @@ export const CuentaCorrienteList = () => {
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [showClientDetail, setShowClientDetail] = useState(false);
+
+  // Get movements for selected client
+  const { data: clientMovimientos = [], isLoading: isLoadingClientMovimientos } = selectedClientId ? 
+    getMovimientosByCliente(selectedClientId) : { data: [], isLoading: false };
+
+  const selectedClientData = selectedClientId ? 
+    resumen.find(r => r.cliente_id === selectedClientId) : null;
 
   const filteredMovimientos = movimientos.filter(mov =>
     mov.cliente?.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -133,7 +142,7 @@ export const CuentaCorrienteList = () => {
                             size="sm"
                             onClick={() => {
                               setSelectedClientId(res.cliente_id);
-                              // You can add a detailed view here
+                              setShowClientDetail(true);
                             }}
                           >
                             <Eye className="h-4 w-4" />
@@ -215,6 +224,105 @@ export const CuentaCorrienteList = () => {
             <DialogTitle>Nuevo Movimiento</DialogTitle>
           </DialogHeader>
           <CuentaCorrienteForm onSuccess={() => setShowForm(false)} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Client Detail Dialog */}
+      <Dialog open={showClientDetail} onOpenChange={setShowClientDetail}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Detalle de Cuenta Corriente - {selectedClientData?.cliente_nombre} {selectedClientData?.cliente_apellido}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedClientData && (
+            <div className="space-y-4">
+              {/* Client Summary */}
+              <div className="grid grid-cols-4 gap-4 p-4 bg-muted rounded-lg">
+                <div>
+                  <p className="text-sm font-medium">CUIT</p>
+                  <p className="text-lg">{selectedClientData.cliente_cuit}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Total Débitos</p>
+                  <p className="text-lg text-red-600">${selectedClientData.total_debitos.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Total Créditos</p>
+                  <p className="text-lg text-green-600">${selectedClientData.total_creditos.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Saldo Actual</p>
+                  <Badge variant={getSaldoBadgeVariant(selectedClientData.saldo_actual)} className="text-base">
+                    ${Math.abs(selectedClientData.saldo_actual).toFixed(2)} 
+                    {selectedClientData.saldo_actual > 0 ? ' (Debe)' : selectedClientData.saldo_actual < 0 ? ' (Favor)' : ''}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Client Movements */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3">Movimientos</h3>
+                {isLoadingClientMovimientos ? (
+                  <div className="text-center py-4">
+                    <p>Cargando movimientos...</p>
+                  </div>
+                ) : (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Fecha</TableHead>
+                          <TableHead>Tipo</TableHead>
+                          <TableHead>Concepto</TableHead>
+                          <TableHead>Monto</TableHead>
+                          <TableHead>Observaciones</TableHead>
+                          <TableHead>Acciones</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {clientMovimientos.map((movimiento) => (
+                          <TableRow key={movimiento.id}>
+                            <TableCell>
+                              {format(new Date(movimiento.fecha_movimiento), "dd/MM/yyyy HH:mm")}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={getTipoMovimientoBadgeVariant(movimiento.tipo_movimiento)}>
+                                {movimiento.tipo_movimiento === 'debito' ? 'Débito' : 'Crédito'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{getConceptoLabel(movimiento.concepto)}</TableCell>
+                            <TableCell className={`font-semibold ${
+                              movimiento.tipo_movimiento === 'debito' ? 'text-red-600' : 'text-green-600'
+                            }`}>
+                              ${movimiento.monto.toFixed(2)}
+                            </TableCell>
+                            <TableCell>{movimiento.observaciones}</TableCell>
+                            <TableCell>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => deleteMovimiento(movimiento.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+                
+                {clientMovimientos.length === 0 && !isLoadingClientMovimientos && (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No hay movimientos para este cliente</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
