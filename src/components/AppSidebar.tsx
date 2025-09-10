@@ -1,4 +1,4 @@
-import { Users, Truck, Package, ShoppingCart, CreditCard } from "lucide-react"
+import { Users, Truck, Package, ShoppingCart, CreditCard, Building2 } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 
 import {
@@ -19,6 +19,7 @@ const menuItems = [
   { title: "Productos", url: "/productos", icon: Package },
   { title: "Ventas", url: "/ventas", icon: ShoppingCart },
   { title: "Cuenta Corriente", url: "/cuenta-corriente", icon: CreditCard },
+  { title: "Bancos", url: "/bancos", icon: Building2 },
 ]
 
 export function AppSidebar() {

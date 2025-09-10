@@ -11,6 +11,7 @@ import Proveedores from "./pages/Proveedores";
 import Productos from "./pages/Productos";
 import Ventas from "./pages/Ventas";
 import CuentaCorriente from "./pages/CuentaCorriente";
+import Bancos from "./pages/Bancos";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,15 +31,16 @@ const App = () => (
                 <h1 className="font-semibold text-foreground">Sistema de Ventas Minorista</h1>
               </header>
               <main className="flex-1 bg-background">
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/clientes" element={<Clientes />} />
-                  <Route path="/proveedores" element={<Proveedores />} />
-                  <Route path="/productos" element={<Productos />} />
-                  <Route path="/ventas" element={<Ventas />} />
-                  <Route path="/cuenta-corriente" element={<CuentaCorriente />} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/clientes" element={<Clientes />} />
+          <Route path="/proveedores" element={<Proveedores />} />
+          <Route path="/productos" element={<Productos />} />
+          <Route path="/ventas" element={<Ventas />} />
+          <Route path="/cuenta-corriente" element={<CuentaCorriente />} />
+          <Route path="/bancos" element={<Bancos />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
               </main>
             </div>
           </div>

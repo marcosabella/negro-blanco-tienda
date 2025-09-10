@@ -19,9 +19,10 @@ export const useVentas = () => {
         .select(`
           *,
           cliente:clientes(nombre, apellido),
+          banco:bancos(nombre_banco, numero_cuenta),
           venta_items(
             *,
-            producto:productos(cod_producto, descripcion)
+            producto:productos(cod_producto, descripcion, precio_venta, porcentaje_iva)
           )
         `)
         .order("created_at", { ascending: false });

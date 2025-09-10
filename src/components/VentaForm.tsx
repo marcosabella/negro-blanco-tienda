@@ -16,6 +16,7 @@ import { useClientes } from "@/hooks/useClientes";
 import { useProductos } from "@/hooks/useProductos";
 import { TIPOS_PAGO, TIPOS_COMPROBANTE, Venta, VentaItem } from "@/types/venta";
 import { Cliente } from "@/types/cliente";
+import { useBancos } from "@/hooks/useBancos";
 import { format } from "date-fns";
 
 const ventaSchema = z.object({
@@ -28,7 +29,16 @@ const ventaSchema = z.object({
   ]),
   cliente_id: z.string().optional(),
   cliente_nombre: z.string().min(1, "Cliente es requerido"),
+  banco_id: z.string().optional(),
   observaciones: z.string().optional(),
+}).refine((data) => {
+  if (data.tipo_pago === 'transferencia' && !data.banco_id) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Banco es requerido para transferencias",
+  path: ["banco_id"],
 });
 
 interface VentaFormProps {
@@ -40,6 +50,7 @@ export const VentaForm = ({ venta, onSuccess }: VentaFormProps) => {
   const { createVenta, updateVenta, isCreating, isUpdating } = useVentas();
   const clientesQuery = useClientes();
   const { productos } = useProductos();
+  const { bancosActivos } = useBancos();
   
   const clientes = clientesQuery.data || [];
 
@@ -83,12 +94,14 @@ export const VentaForm = ({ venta, onSuccess }: VentaFormProps) => {
       tipo_comprobante: venta.tipo_comprobante,
       cliente_id: venta.cliente_id,
       cliente_nombre: venta.cliente_nombre || "Consumidor Final",
+      banco_id: venta.banco_id,
       observaciones: venta.observaciones || "",
     } : {
       fecha_venta: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
       tipo_pago: "contado",
       tipo_comprobante: "ticket_fiscal",
       cliente_nombre: "Consumidor Final",
+      banco_id: "",
       observaciones: "",
     },
   });

@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      bancos: {
+        Row: {
+          activo: boolean
+          cbu: string
+          created_at: string
+          id: string
+          nombre_banco: string
+          numero_cuenta: string
+          observaciones: string | null
+          sucursal: string
+          tipo_cuenta: Database["public"]["Enums"]["tipo_cuenta_bancaria"]
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          cbu: string
+          created_at?: string
+          id?: string
+          nombre_banco: string
+          numero_cuenta: string
+          observaciones?: string | null
+          sucursal: string
+          tipo_cuenta?: Database["public"]["Enums"]["tipo_cuenta_bancaria"]
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          cbu?: string
+          created_at?: string
+          id?: string
+          nombre_banco?: string
+          numero_cuenta?: string
+          observaciones?: string | null
+          sucursal?: string
+          tipo_cuenta?: Database["public"]["Enums"]["tipo_cuenta_bancaria"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       clientes: {
         Row: {
           apellido: string
@@ -419,6 +458,7 @@ export type Database = {
       }
       ventas: {
         Row: {
+          banco_id: string | null
           cliente_id: string | null
           cliente_nombre: string | null
           created_at: string
@@ -434,6 +474,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          banco_id?: string | null
           cliente_id?: string | null
           cliente_nombre?: string | null
           created_at?: string
@@ -449,6 +490,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          banco_id?: string | null
           cliente_id?: string | null
           cliente_nombre?: string | null
           created_at?: string
@@ -464,6 +506,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ventas_banco_id_fkey"
+            columns: ["banco_id"]
+            isOneToOne: false
+            referencedRelation: "bancos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ventas_cliente_id_fkey"
             columns: ["cliente_id"]
@@ -496,6 +545,13 @@ export type Database = {
         | "recibo_c"
         | "ticket_fiscal"
         | "factura_exportacion"
+      tipo_cuenta_bancaria:
+        | "CA_PESOS"
+        | "CA_USD"
+        | "CC_PESOS"
+        | "CC_USD"
+        | "CAJA_AHORRO"
+        | "CUENTA_SUELDO"
       tipo_moneda: "ARS" | "USD" | "USD_BLUE"
       tipo_pago: "contado" | "transferencia" | "tarjeta" | "cheque" | "cta_cte"
     }
@@ -640,6 +696,14 @@ export const Constants = {
         "recibo_c",
         "ticket_fiscal",
         "factura_exportacion",
+      ],
+      tipo_cuenta_bancaria: [
+        "CA_PESOS",
+        "CA_USD",
+        "CC_PESOS",
+        "CC_USD",
+        "CAJA_AHORRO",
+        "CUENTA_SUELDO",
       ],
       tipo_moneda: ["ARS", "USD", "USD_BLUE"],
       tipo_pago: ["contado", "transferencia", "tarjeta", "cheque", "cta_cte"],

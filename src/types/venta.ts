@@ -6,6 +6,7 @@ export interface Venta {
   tipo_comprobante: TipoComprobante;
   cliente_id?: string;
   cliente_nombre: string;
+  banco_id?: string;
   subtotal: number;
   total_iva: number;
   total: number;
@@ -15,6 +16,10 @@ export interface Venta {
   cliente?: {
     nombre: string;
     apellido: string;
+  };
+  banco?: {
+    nombre_banco: string;
+    numero_cuenta: string;
   };
   venta_items?: VentaItem[];
 }
