@@ -150,11 +150,21 @@ export const useVentas = () => {
 
   const deleteVentaMutation = useMutation({
     mutationFn: async (id: string) => {
+      // First delete related cuenta corriente movements
+      const { error: cuentaError } = await supabase
+        .from("cuenta_corriente")
+        .delete()
+        .eq("venta_id", id);
+      
+      if (cuentaError) throw cuentaError;
+
+      // Then delete the sale
       const { error } = await supabase.from("ventas").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ventas"] });
+      queryClient.invalidateQueries({ queryKey: ["cuenta-corriente"] });
       toast({
         title: "Éxito",
         description: "Venta eliminada correctamente",

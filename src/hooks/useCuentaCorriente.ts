@@ -156,6 +156,41 @@ export const useCuentaCorriente = () => {
     },
   });
 
+  const deleteVentaFromCuentaMutation = useMutation({
+    mutationFn: async (ventaId: string) => {
+      // First delete current account movements related to the sale
+      const { error: cuentaError } = await supabase
+        .from("cuenta_corriente")
+        .delete()
+        .eq("venta_id", ventaId);
+      
+      if (cuentaError) throw cuentaError;
+
+      // Then delete the sale itself
+      const { error: ventaError } = await supabase
+        .from("ventas")
+        .delete()
+        .eq("id", ventaId);
+      
+      if (ventaError) throw ventaError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cuenta-corriente"] });
+      queryClient.invalidateQueries({ queryKey: ["ventas"] });
+      toast({
+        title: "Éxito",
+        description: "Venta eliminada correctamente desde cuenta corriente",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Error al eliminar venta: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
   return {
     movimientos,
     isLoading,
@@ -164,7 +199,9 @@ export const useCuentaCorriente = () => {
     getResumenCuentaCorreinte,
     createMovimiento: createMovimientoMutation.mutate,
     deleteMovimiento: deleteMovimientoMutation.mutate,
+    deleteVentaFromCuenta: deleteVentaFromCuentaMutation.mutate,
     isCreating: createMovimientoMutation.isPending,
     isDeleting: deleteMovimientoMutation.isPending,
+    isDeletingVenta: deleteVentaFromCuentaMutation.isPending,
   };
 };

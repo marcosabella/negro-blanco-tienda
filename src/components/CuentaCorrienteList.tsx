@@ -17,6 +17,7 @@ export const CuentaCorrienteList = () => {
     movimientos, 
     isLoading, 
     deleteMovimiento, 
+    deleteVentaFromCuenta,
     getResumenCuentaCorreinte,
     useMovimientosByCliente 
   } = useCuentaCorriente();
@@ -186,7 +187,16 @@ export const CuentaCorrienteList = () => {
                             {movimiento.tipo_movimiento === 'debito' ? 'Débito' : 'Crédito'}
                           </Badge>
                         </TableCell>
-                        <TableCell>{getConceptoLabel(movimiento.concepto)}</TableCell>
+                        <TableCell>
+                          <div>
+                            {getConceptoLabel(movimiento.concepto)}
+                            {movimiento.venta_id && (
+                              <div className="text-xs text-muted-foreground">
+                                Venta: {movimiento.venta?.numero_comprobante}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className={`font-semibold ${
                           movimiento.tipo_movimiento === 'debito' ? 'text-red-600' : 'text-green-600'
                         }`}>
@@ -194,13 +204,35 @@ export const CuentaCorrienteList = () => {
                         </TableCell>
                         <TableCell>{movimiento.observaciones}</TableCell>
                         <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => deleteMovimiento(movimiento.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {movimiento.venta_id ? (
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  if (confirm("¿Eliminar toda la venta? Esto eliminará la venta y todos sus movimientos asociados.")) {
+                                    deleteVentaFromCuenta(movimiento.venta_id);
+                                  }
+                                }}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                Venta
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                if (confirm("¿Eliminar este movimiento?")) {
+                                  deleteMovimiento(movimiento.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -292,7 +324,16 @@ export const CuentaCorrienteList = () => {
                                 {movimiento.tipo_movimiento === 'debito' ? 'Débito' : 'Crédito'}
                               </Badge>
                             </TableCell>
-                            <TableCell>{getConceptoLabel(movimiento.concepto)}</TableCell>
+                            <TableCell>
+                              <div>
+                                {getConceptoLabel(movimiento.concepto)}
+                                {movimiento.venta_id && (
+                                  <div className="text-xs text-muted-foreground">
+                                    Venta: {movimiento.venta?.numero_comprobante}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
                             <TableCell className={`font-semibold ${
                               movimiento.tipo_movimiento === 'debito' ? 'text-red-600' : 'text-green-600'
                             }`}>
@@ -300,13 +341,35 @@ export const CuentaCorrienteList = () => {
                             </TableCell>
                             <TableCell>{movimiento.observaciones}</TableCell>
                             <TableCell>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => deleteMovimiento(movimiento.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              {movimiento.venta_id ? (
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      if (confirm("¿Eliminar toda la venta? Esto eliminará la venta y todos sus movimientos asociados.")) {
+                                        deleteVentaFromCuenta(movimiento.venta_id);
+                                      }
+                                    }}
+                                    className="text-red-600 hover:text-red-700"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                    Venta
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    if (confirm("¿Eliminar este movimiento?")) {
+                                      deleteMovimiento(movimiento.id);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
