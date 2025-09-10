@@ -30,10 +30,12 @@ export const useCuentaCorriente = () => {
   });
 
   // Get movements by client
-  const getMovimientosByCliente = (clienteId: string) => {
+  const useMovimientosByCliente = (clienteId: string | null) => {
     return useQuery({
       queryKey: ["cuenta-corriente", "cliente", clienteId],
       queryFn: async () => {
+        if (!clienteId) return [];
+        
         const { data, error } = await supabase
           .from("cuenta_corriente")
           .select(`
@@ -47,6 +49,7 @@ export const useCuentaCorriente = () => {
         if (error) throw error;
         return data as CuentaCorriente[];
       },
+      enabled: !!clienteId,
     });
   };
 
@@ -157,7 +160,7 @@ export const useCuentaCorriente = () => {
     movimientos,
     isLoading,
     error,
-    getMovimientosByCliente,
+    useMovimientosByCliente,
     getResumenCuentaCorreinte,
     createMovimiento: createMovimientoMutation.mutate,
     deleteMovimiento: deleteMovimientoMutation.mutate,

@@ -18,7 +18,7 @@ export const CuentaCorrienteList = () => {
     isLoading, 
     deleteMovimiento, 
     getResumenCuentaCorreinte,
-    getMovimientosByCliente 
+    useMovimientosByCliente 
   } = useCuentaCorriente();
   
   const { data: resumen = [], isLoading: isLoadingResumen } = getResumenCuentaCorreinte();
@@ -28,9 +28,9 @@ export const CuentaCorrienteList = () => {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [showClientDetail, setShowClientDetail] = useState(false);
 
-  // Get movements for selected client
-  const { data: clientMovimientos = [], isLoading: isLoadingClientMovimientos } = selectedClientId ? 
-    getMovimientosByCliente(selectedClientId) : { data: [], isLoading: false };
+  // Get movements for selected client - always call the hook
+  const { data: clientMovimientos = [], isLoading: isLoadingClientMovimientos } = 
+    useMovimientosByCliente(selectedClientId);
 
   const selectedClientData = selectedClientId ? 
     resumen.find(r => r.cliente_id === selectedClientId) : null;
