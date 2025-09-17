@@ -341,6 +341,38 @@ export const VentaForm = ({ venta, onSuccess }: VentaFormProps) => {
                   </FormItem>
                 )}
               />
+
+              {form.watch("tipo_pago") === "transferencia" && (
+                <FormField
+                  control={form.control}
+                  name="banco_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Banco de Destino</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar banco" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {bancosActivos.map((banco) => (
+                            <SelectItem key={banco.id} value={banco.id}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{banco.nombre_banco}</span>
+                                <span className="text-sm text-muted-foreground">
+                                  {banco.sucursal} - Cta: {banco.numero_cuenta}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
 
             <div className="space-y-4">
