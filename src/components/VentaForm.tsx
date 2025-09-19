@@ -95,3 +95,4 @@ const VentaForm: React.FC<VentaFormProps> = ({ form, onSubmit, selectedTarjetaId
 }
 
 export default VentaForm
+
