@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Eye, Edit, Trash2 } from "lucide-react";
 import { useVentas } from "@/hooks/useVentas";
-import { VentaForm } from "./VentaForm";
+import VentaForm from "./VentaForm"
 import { Venta, TIPOS_PAGO, TIPOS_COMPROBANTE } from "@/types/venta";
 import { format } from "date-fns";
 
