@@ -20,6 +20,7 @@ export interface CuentaCorriente {
     numero_comprobante: string;
   };
   tarjeta?: {
+  }
 }
 
 export interface CuentaCorrienteResumen {

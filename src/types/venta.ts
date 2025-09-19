@@ -25,6 +25,7 @@ export interface Venta {
     numero_cuenta: string;
   };
   tarjeta?: {
+  }
   venta_items?: VentaItem[];
 }
 
