@@ -236,6 +236,15 @@ export const VentasList = () => {
                   </div>
                   <div>
                     <p className="text-lg"><strong>Total:</strong> ${selectedVenta.total.toFixed(2)}</p>
+                    {selectedVenta.tipo_pago === 'tarjeta' && selectedVenta.tarjeta && (
+                      <>
+                        <p><strong>Tarjeta:</strong> {selectedVenta.tarjeta.nombre}</p>
+                        <p><strong>Cuotas:</strong> {selectedVenta.cuotas}</p>
+                        {selectedVenta.recargo_cuotas && selectedVenta.recargo_cuotas > 0 && (
+                          <p><strong>Recargo:</strong> ${selectedVenta.recargo_cuotas.toFixed(2)}</p>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

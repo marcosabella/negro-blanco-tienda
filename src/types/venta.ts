@@ -7,6 +7,9 @@ export interface Venta {
   cliente_id?: string;
   cliente_nombre: string;
   banco_id?: string;
+  tarjeta_id?: string;
+  cuotas?: number;
+  recargo_cuotas?: number;
   subtotal: number;
   total_iva: number;
   total: number;
@@ -21,6 +24,7 @@ export interface Venta {
     nombre_banco: string;
     numero_cuenta: string;
   };
+  tarjeta?: {
   venta_items?: VentaItem[];
 }
 

@@ -20,6 +20,7 @@ export const useVentas = () => {
           *,
           cliente:clientes(nombre, apellido),
           banco:bancos(nombre_banco, numero_cuenta),
+          tarjeta:tarjetas_credito(nombre),
           venta_items(
             *,
             producto:productos(cod_producto, descripcion, precio_venta, porcentaje_iva)

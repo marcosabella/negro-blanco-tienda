@@ -20,6 +20,7 @@ const menuItems = [
   { title: "Ventas", url: "/ventas", icon: ShoppingCart },
   { title: "Cuenta Corriente", url: "/cuenta-corriente", icon: CreditCard },
   { title: "Bancos", url: "/bancos", icon: Building2 },
+  { title: "Tarjetas", url: "/tarjetas", icon: CreditCard },
 ]
 
 export function AppSidebar() {

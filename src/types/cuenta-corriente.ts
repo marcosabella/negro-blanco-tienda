@@ -5,6 +5,8 @@ export interface CuentaCorriente {
   monto: number;
   concepto: string;
   venta_id?: string;
+  tarjeta_id?: string;
+  cuotas?: number;
   fecha_movimiento: string;
   observaciones?: string;
   created_at: string;
@@ -17,6 +19,7 @@ export interface CuentaCorriente {
   venta?: {
     numero_comprobante: string;
   };
+  tarjeta?: {
 }
 
 export interface CuentaCorrienteResumen {
@@ -38,4 +41,5 @@ export const CONCEPTOS_MOVIMIENTO = [
   { value: 'nota_credito', label: 'Nota de Crédito' },
   { value: 'nota_debito', label: 'Nota de Débito' },
   { value: 'ajuste', label: 'Ajuste' },
+  { value: 'pago_tarjeta', label: 'Pago con Tarjeta' },
 ] as const;

@@ -41,6 +41,7 @@ export const useCuentaCorriente = () => {
           .select(`
             *,
             cliente:clientes(nombre, apellido, cuit),
+            tarjeta:tarjetas_credito(nombre),
             venta:ventas(numero_comprobante)
           `)
           .eq("cliente_id", clienteId)
@@ -66,6 +67,8 @@ export const useCuentaCorriente = () => {
             tipo_movimiento,
             monto,
             fecha_movimiento,
+            tarjeta_id,
+            cuotas,
             cliente:clientes(nombre, apellido, cuit)
           `);
 

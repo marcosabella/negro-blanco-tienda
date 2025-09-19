@@ -14,6 +14,8 @@ import { Plus, Search, Trash2 } from "lucide-react";
 import { useVentas } from "@/hooks/useVentas";
 import { useClientes } from "@/hooks/useClientes";
 import { useProductos } from "@/hooks/useProductos";
+import { useTarjetas } from "@/hooks/useTarjetas";
+import { useTarjetaCuotas } from "@/hooks/useTarjetaCuotas";
 import { TIPOS_PAGO, TIPOS_COMPROBANTE, Venta, VentaItem } from "@/types/venta";
 import { Cliente } from "@/types/cliente";
 import { useBancos } from "@/hooks/useBancos";
@@ -30,15 +32,28 @@ const ventaSchema = z.object({
   cliente_id: z.string().optional(),
   cliente_nombre: z.string().min(1, "Cliente es requerido"),
   banco_id: z.string().optional(),
+  tarjeta_id: z.string().optional(),
+  cuotas: z.number().optional(),
   observaciones: z.string().optional(),
 }).refine((data) => {
   if (data.tipo_pago === 'transferencia' && !data.banco_id) {
+    return false;
+  }
+  if (data.tipo_pago === 'tarjeta' && !data.tarjeta_id) {
     return false;
   }
   return true;
 }, {
   message: "Banco es requerido para transferencias",
   path: ["banco_id"],
+}).refine((data) => {
+  if (data.tipo_pago === 'tarjeta' && !data.tarjeta_id) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Tarjeta es requerida para pagos con tarjeta",
+  path: ["tarjeta_id"],
 });
 
 interface VentaFormProps {
@@ -51,6 +66,8 @@ export const VentaForm = ({ venta, onSuccess }: VentaFormProps) => {
   const clientesQuery = useClientes();
   const { productos } = useProductos();
   const { bancosActivos } = useBancos();
+  const { tarjetasActivas } = useTarjetas();
+  const { useCuotasByTarjeta } = useTarjetaCuotas();
   
   const clientes = clientesQuery.data || [];
 
@@ -77,7 +94,12 @@ export const VentaForm = ({ venta, onSuccess }: VentaFormProps) => {
       apellido: venta.cliente?.apellido || ""
     } : null
   );
+  const [selectedTarjetaId, setSelectedTarjetaId] = useState<string | null>(
+    venta?.tarjeta_id || null
+  );
 
+  // Get installments for selected credit card
+  const { data: cuotasDisponibles = [] } = useCuotasByTarjeta(selectedTarjetaId);
   // Filter clients based on search term
   const filteredClientes = clientes.filter(cliente =>
     cliente.nombre.toLowerCase().includes(clientSearchTerm.toLowerCase()) ||
@@ -95,6 +117,8 @@ export const VentaForm = ({ venta, onSuccess }: VentaFormProps) => {
       cliente_id: venta.cliente_id,
       cliente_nombre: venta.cliente_nombre || "Consumidor Final",
       banco_id: venta.banco_id,
+      tarjeta_id: venta.tarjeta_id,
+      cuotas: venta.cuotas || 1,
       observaciones: venta.observaciones || "",
     } : {
       fecha_venta: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
@@ -102,6 +126,8 @@ export const VentaForm = ({ venta, onSuccess }: VentaFormProps) => {
       tipo_comprobante: "ticket_fiscal",
       cliente_nombre: "Consumidor Final",
       banco_id: "",
+      tarjeta_id: "",
+      cuotas: 1,
       observaciones: "",
     },
   });
@@ -148,6 +174,17 @@ export const VentaForm = ({ venta, onSuccess }: VentaFormProps) => {
   const onSubmit = (values: z.infer<typeof ventaSchema>) => {
     const { subtotal, totalIva, total } = calculateTotals();
     
+    // Calculate credit card surcharge if applicable
+    let recargoTarjeta = 0;
+    if (values.tipo_pago === 'tarjeta' && values.tarjeta_id && values.cuotas) {
+      const cuotaConfig = cuotasDisponibles.find(c => c.cantidad_cuotas === values.cuotas);
+      if (cuotaConfig) {
+        recargoTarjeta = total * (cuotaConfig.porcentaje_recargo / 100);
+      }
+    }
+    
+    const totalConRecargo = total + recargoTarjeta;
+    
     const ventaData = {
       numero_comprobante: venta?.numero_comprobante || `${values.tipo_comprobante.toUpperCase()}-${Date.now()}`,
       fecha_venta: new Date(values.fecha_venta).toISOString(),
@@ -155,9 +192,13 @@ export const VentaForm = ({ venta, onSuccess }: VentaFormProps) => {
       tipo_comprobante: values.tipo_comprobante,
       cliente_id: selectedClient?.id,
       cliente_nombre: values.cliente_nombre,
+      banco_id: values.tipo_pago === 'transferencia' ? values.banco_id : undefined,
+      tarjeta_id: values.tipo_pago === 'tarjeta' ? values.tarjeta_id : undefined,
+      cuotas: values.tipo_pago === 'tarjeta' ? values.cuotas : undefined,
+      recargo_cuotas: recargoTarjeta,
       subtotal,
       total_iva: totalIva,
-      total,
+      total: totalConRecargo,
       observaciones: values.observaciones,
     };
 
@@ -375,6 +416,81 @@ export const VentaForm = ({ venta, onSuccess }: VentaFormProps) => {
               )}
             </div>
 
+            {form.watch("tipo_pago") === "tarjeta" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="tarjeta_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tarjeta de Crédito</FormLabel>
+                      <Select 
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          setSelectedTarjetaId(value);
+                          form.setValue("cuotas", 1);
+                        }} 
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar tarjeta" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {tarjetasActivas.map((tarjeta) => (
+                            <SelectItem key={tarjeta.id} value={tarjeta.id}>
+                              {tarjeta.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {selectedTarjetaId && cuotasDisponibles.length > 0 && (
+                  <FormField
+                    control={form.control}
+                    name="cuotas"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cantidad de Cuotas</FormLabel>
+                        <Select 
+                          onValueChange={(value) => field.onChange(parseInt(value))} 
+                          defaultValue={field.value?.toString()}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccionar cuotas" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {cuotasDisponibles.map((cuota) => (
+                              <SelectItem key={cuota.id} value={cuota.cantidad_cuotas.toString()}>
+                                <div className="flex flex-col">
+                                  <span>
+                                    {cuota.cantidad_cuotas} {cuota.cantidad_cuotas === 1 ? 'cuota' : 'cuotas'}
+                                  </span>
+                                  {cuota.porcentaje_recargo > 0 && (
+                                    <span className="text-sm text-muted-foreground">
+                                      +{cuota.porcentaje_recargo}% recargo
+                                    </span>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </div>
+            )}
+
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold">Items de Venta</h3>
@@ -454,8 +570,35 @@ export const VentaForm = ({ venta, onSuccess }: VentaFormProps) => {
                   </div>
                   <div>
                     <span className="font-semibold">Total: </span>
-                    <span className="text-lg">${total.toFixed(2)}</span>
+                    <span className="text-lg">
+                      ${(() => {
+                        let finalTotal = total;
+                        if (form.watch("tipo_pago") === 'tarjeta' && selectedTarjetaId && form.watch("cuotas")) {
+                          const cuotaConfig = cuotasDisponibles.find(c => c.cantidad_cuotas === form.watch("cuotas"));
+                          if (cuotaConfig) {
+                            const recargo = total * (cuotaConfig.porcentaje_recargo / 100);
+                            finalTotal = total + recargo;
+                          }
+                        }
+                        return finalTotal.toFixed(2);
+                      })()}
+                    </span>
                   </div>
+                </div>
+                {form.watch("tipo_pago") === 'tarjeta' && selectedTarjetaId && form.watch("cuotas") && (
+                  <div className="mt-2 pt-2 border-t">
+                    <div className="text-sm text-muted-foreground">
+                      {(() => {
+                        const cuotaConfig = cuotasDisponibles.find(c => c.cantidad_cuotas === form.watch("cuotas"));
+                        if (cuotaConfig && cuotaConfig.porcentaje_recargo > 0) {
+                          const recargo = total * (cuotaConfig.porcentaje_recargo / 100);
+                          return `Recargo por cuotas: $${recargo.toFixed(2)} (${cuotaConfig.porcentaje_recargo}%)`;
+                        }
+                        return null;
+                      })()}
+                    </div>
+                  </div>
+                )}
                 </div>
               </div>
             </div>

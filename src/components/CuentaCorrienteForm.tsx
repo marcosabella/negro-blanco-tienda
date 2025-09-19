@@ -227,6 +227,7 @@ export const CuentaCorrienteForm = ({ onSuccess }: CuentaCorrienteFormProps) => 
                             {concepto.label}
                           </SelectItem>
                         ))}
+                        <SelectItem value="pago_tarjeta">Pago con Tarjeta</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -234,6 +235,81 @@ export const CuentaCorrienteForm = ({ onSuccess }: CuentaCorrienteFormProps) => 
                 )}
               />
             </div>
+
+            {form.watch("concepto") === "pago_tarjeta" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="tarjeta_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tarjeta de Crédito</FormLabel>
+                      <Select 
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          setSelectedTarjetaId(value);
+                          form.setValue("cuotas", 1);
+                        }} 
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar tarjeta" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {tarjetasActivas.map((tarjeta) => (
+                            <SelectItem key={tarjeta.id} value={tarjeta.id}>
+                              {tarjeta.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {selectedTarjetaId && cuotasDisponibles.length > 0 && (
+                  <FormField
+                    control={form.control}
+                    name="cuotas"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cantidad de Cuotas</FormLabel>
+                        <Select 
+                          onValueChange={(value) => field.onChange(parseInt(value))} 
+                          defaultValue={field.value?.toString()}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccionar cuotas" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {cuotasDisponibles.map((cuota) => (
+                              <SelectItem key={cuota.id} value={cuota.cantidad_cuotas.toString()}>
+                                <div className="flex flex-col">
+                                  <span>
+                                    {cuota.cantidad_cuotas} {cuota.cantidad_cuotas === 1 ? 'cuota' : 'cuotas'}
+                                  </span>
+                                  {cuota.porcentaje_recargo > 0 && (
+                                    <span className="text-sm text-muted-foreground">
+                                      +{cuota.porcentaje_recargo}% recargo
+                                    </span>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </div>
+            )}
 
             <FormField
               control={form.control}
