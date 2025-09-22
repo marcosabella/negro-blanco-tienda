@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { TarjetaCuota } from "@/types/tarjeta";
 import { useToast } from "@/hooks/use-toast";
 
-export const useTarjetaCuotas = () => {
+export const useTarjetaCuotas = (tarjetaId?: string) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -32,6 +32,10 @@ export const useTarjetaCuotas = () => {
     return useQuery({
       queryKey: ["tarjeta-cuotas", "tarjeta", tarjetaId],
       queryFn: async () => {
+        if (!tarjetaId) {
+          return [];
+        }
+        
         if (!tarjetaId) return [];
         
         const { data, error } = await supabase
