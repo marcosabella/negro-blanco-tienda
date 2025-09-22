@@ -74,7 +74,7 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
   const { tarjetas } = useTarjetas()
   const { bancos } = useBancos()
   const [selectedTarjetaId, setSelectedTarjetaId] = useState<string>("")
-  const { tarjetaCuotas = [] } = useTarjetaCuotas(selectedTarjetaId)
+  const { tarjetaCuotas } = useTarjetaCuotas(selectedTarjetaId)
 
   const form = useForm<VentaFormData>({
     resolver: zodResolver(ventaSchema),
