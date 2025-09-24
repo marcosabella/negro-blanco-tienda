@@ -8,21 +8,26 @@ export const useTarjetaCuotas = (tarjetaId?: string) => {
   const [error, setError] = useState<string | null>(null)
 
   const fetchTarjetaCuotas = async (id: string) => {
-    if (!id) {
-      setTarjetaCuotas([])
-      return
-    }
-
     try {
       setLoading(true)
       setError(null)
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('tarjeta_cuotas')
-        .select('*')
-        .eq('tarjeta_id', id)
+        .select(`
+          *,
+          tarjetas_credito (
+            nombre
+          )
+        `)
         .eq('activa', true)
         .order('cantidad_cuotas')
+
+      if (id) {
+        query = query.eq('tarjeta_id', id)
+      }
+
+      const { data, error } = await query
 
       if (error) throw error
       setTarjetaCuotas(data || [])
@@ -35,11 +40,7 @@ export const useTarjetaCuotas = (tarjetaId?: string) => {
   }
 
   useEffect(() => {
-    if (tarjetaId) {
-      fetchTarjetaCuotas(tarjetaId)
-    } else {
-      setTarjetaCuotas([])
-    }
+    fetchTarjetaCuotas(tarjetaId || '')
   }, [tarjetaId])
 
   const createTarjetaCuota = async (cuotaData: Omit<TarjetaCuota, 'id' | 'created_at' | 'updated_at'>) => {
