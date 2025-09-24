@@ -31,7 +31,7 @@ interface TarjetaCuotasFormProps {
 
 export const TarjetaCuotasForm = ({ cuota, onSuccess }: TarjetaCuotasFormProps) => {
   const { tarjetas } = useTarjetas();
-  const { cuotas, createCuota, updateCuota, deleteCuota, isCreating, isUpdating } = useTarjetaCuotas();
+  const { tarjetaCuotas: cuotas, createTarjetaCuota, updateTarjetaCuota, deleteTarjetaCuota, loading } = useTarjetaCuotas();
   const [editingCuota, setEditingCuota] = useState<TarjetaCuota | null>(null);
 
   const form = useForm<CuotaFormData>({
@@ -53,10 +53,10 @@ export const TarjetaCuotasForm = ({ cuota, onSuccess }: TarjetaCuotasFormProps) 
     const cuotaData = data as Omit<TarjetaCuota, "id" | "created_at" | "updated_at">;
     
     if (editingCuota) {
-      updateCuota({ id: editingCuota.id, cuota: cuotaData });
+      updateTarjetaCuota(editingCuota.id, cuotaData);
       setEditingCuota(null);
     } else {
-      createCuota(cuotaData);
+      createTarjetaCuota(cuotaData);
     }
     
     form.reset();
@@ -85,7 +85,7 @@ export const TarjetaCuotasForm = ({ cuota, onSuccess }: TarjetaCuotasFormProps) 
     });
   };
 
-  const isLoading = isCreating || isUpdating;
+  const isLoading = loading;
 
   return (
     <div className="space-y-6">
@@ -256,7 +256,7 @@ export const TarjetaCuotasForm = ({ cuota, onSuccess }: TarjetaCuotasFormProps) 
                           size="sm"
                           onClick={() => {
                             if (confirm("¿Estás seguro de eliminar esta configuración de cuotas?")) {
-                              deleteCuota(cuota.id);
+                              deleteTarjetaCuota(cuota.id);
                             }
                           }}
                         >
