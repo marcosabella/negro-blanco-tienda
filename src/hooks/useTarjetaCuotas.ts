@@ -12,6 +12,12 @@ export const useTarjetaCuotas = (tarjetaId?: string) => {
       setLoading(true)
       setError(null)
       
+      // Si no hay tarjetaId, establecer array vacío y retornar
+      if (!id || id.trim() === '') {
+        setTarjetaCuotas([])
+        return
+      }
+      
       let query = supabase
         .from('tarjeta_cuotas')
         .select(`
@@ -23,9 +29,7 @@ export const useTarjetaCuotas = (tarjetaId?: string) => {
         .eq('activa', true)
         .order('cantidad_cuotas')
 
-      if (id) {
-        query = query.eq('tarjeta_id', id)
-      }
+      query = query.eq('tarjeta_id', id)
 
       const { data, error } = await query
 
