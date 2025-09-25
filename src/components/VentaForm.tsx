@@ -451,7 +451,7 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                               {tarjetaCuotas && Array.isArray(tarjetaCuotas) && tarjetaCuotas.filter(cuota => cuota.activa).map((cuota) => (
+                               {(tarjetaCuotas || []).filter(cuota => cuota.activa).map((cuota) => (
                                   <SelectItem key={cuota.id} value={cuota.cantidad_cuotas.toString()}>
                                     {cuota.cantidad_cuotas} cuotas 
                                     {cuota.porcentaje_recargo > 0 && ` (+${cuota.porcentaje_recargo}%)`}
