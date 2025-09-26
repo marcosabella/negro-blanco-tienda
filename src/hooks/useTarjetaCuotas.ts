@@ -1,120 +1,149 @@
-import { useState, useEffect } from 'react'
-import { supabase } from '@/integrations/supabase/client'
-import { TarjetaCuota } from '@/types/tarjeta'
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { TarjetaCredito, TarjetaConCuotas } from "@/types/tarjeta";
+import { useToast } from "@/hooks/use-toast";
 
-export const useTarjetaCuotas = (tarjetaId?: string) => {
-  const [tarjetaCuotas, setTarjetaCuotas] = useState<TarjetaCuota[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+export const useTarjetas = () => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const fetchTarjetaCuotas = async (id: string) => {
-    try {
-      setLoading(true)
-      setError(null)
-      
-      // Si no hay tarjetaId, establecer array vacío y retornar
-      if (!id || id.trim() === '') {
-        setTarjetaCuotas([])
-        return
-      }
-      
-      let query = supabase
-        .from('tarjeta_cuotas')
+  // Todas las tarjetas
+  const {
+    data: tarjetas = [], // 👈 importante: default a []
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["tarjetas"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tarjetas_credito")
         .select(`
           *,
-          tarjetas_credito (
-            nombre
-          )
+          tarjeta_cuotas(*)
         `)
-        .eq('activa', true)
-        .order('cantidad_cuotas')
+        .order("nombre", { ascending: true });
 
-      query = query.eq('tarjeta_id', id)
+      if (error) throw error;
+      return (data ?? []) as TarjetaCredito[];
+    },
+  });
 
-      const { data, error } = await query
-
-      if (error) throw error
-      setTarjetaCuotas(data || [])
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido')
-      setTarjetaCuotas([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchTarjetaCuotas(tarjetaId || '')
-  }, [tarjetaId])
-
-  const createTarjetaCuota = async (cuotaData: Omit<TarjetaCuota, 'id' | 'created_at' | 'updated_at'>) => {
-    try {
+  // Solo tarjetas activas con cuotas activas
+  const {
+    data: tarjetasActivas = [], // 👈 default a []
+    isLoading: isLoadingActivas,
+  } = useQuery({
+    queryKey: ["tarjetas", "activas"],
+    queryFn: async () => {
       const { data, error } = await supabase
-        .from('tarjeta_cuotas')
-        .insert([cuotaData])
-        .select()
-        .single()
+        .from("tarjetas_credito")
+        .select(`
+          *,
+          tarjeta_cuotas!inner(*)
+        `)
+        .eq("activa", true)
+        .eq("tarjeta_cuotas.activa", true)
+        .order("nombre", { ascending: true });
 
-      if (error) throw error
-      
-      // Refrescar la lista si es para la tarjeta actual
-      if (cuotaData.tarjeta_id === tarjetaId) {
-        await fetchTarjetaCuotas(tarjetaId)
-      }
-      
-      return data
-    } catch (err) {
-      throw err instanceof Error ? err : new Error('Error desconocido')
-    }
-  }
+      if (error) throw error;
 
-  const updateTarjetaCuota = async (id: string, cuotaData: Partial<TarjetaCuota>) => {
-    try {
+      const tarjetasConCuotas: TarjetaConCuotas[] = (data ?? []).map((tarjeta) => ({
+        ...tarjeta,
+        cuotas_disponibles: tarjeta.tarjeta_cuotas || [],
+      }));
+
+      return tarjetasConCuotas;
+    },
+  });
+
+  // Mutations...
+  const createTarjetaMutation = useMutation({
+    mutationFn: async (tarjeta: Omit<TarjetaCredito, "id" | "created_at" | "updated_at">) => {
       const { data, error } = await supabase
-        .from('tarjeta_cuotas')
-        .update(cuotaData)
-        .eq('id', id)
+        .from("tarjetas_credito")
+        .insert([tarjeta])
         .select()
-        .single()
+        .single();
 
-      if (error) throw error
-      
-      // Refrescar la lista si es para la tarjeta actual
-      if (tarjetaId) {
-        await fetchTarjetaCuotas(tarjetaId)
-      }
-      
-      return data
-    } catch (err) {
-      throw err instanceof Error ? err : new Error('Error desconocido')
-    }
-  }
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tarjetas"] });
+      toast({
+        title: "Éxito",
+        description: "Tarjeta registrada correctamente",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Error al registrar tarjeta: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
 
-  const deleteTarjetaCuota = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('tarjeta_cuotas')
-        .delete()
-        .eq('id', id)
+  const updateTarjetaMutation = useMutation({
+    mutationFn: async ({ id, tarjeta }: { id: string; tarjeta: Omit<TarjetaCredito, "id" | "created_at" | "updated_at"> }) => {
+      const { data, error } = await supabase
+        .from("tarjetas_credito")
+        .update(tarjeta)
+        .eq("id", id)
+        .select()
+        .single();
 
-      if (error) throw error
-      
-      // Refrescar la lista si es para la tarjeta actual
-      if (tarjetaId) {
-        await fetchTarjetaCuotas(tarjetaId)
-      }
-    } catch (err) {
-      throw err instanceof Error ? err : new Error('Error desconocido')
-    }
-  }
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tarjetas"] });
+      toast({
+        title: "Éxito",
+        description: "Tarjeta actualizada correctamente",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Error al actualizar tarjeta: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteTarjetaMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("tarjetas_credito").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tarjetas"] });
+      toast({
+        title: "Éxito",
+        description: "Tarjeta eliminada correctamente",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Error al eliminar tarjeta: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
 
   return {
-    tarjetaCuotas,
-    loading,
+    tarjetas,         // siempre []
+    tarjetasActivas,  // siempre []
+    isLoading,
+    isLoadingActivas,
     error,
-    createTarjetaCuota,
-    updateTarjetaCuota,
-    deleteTarjetaCuota,
-    refetch: () => tarjetaId ? fetchTarjetaCuotas(tarjetaId) : Promise.resolve()
-  }
-}
+    createTarjeta: createTarjetaMutation.mutate,
+    updateTarjeta: updateTarjetaMutation.mutate,
+    deleteTarjeta: deleteTarjetaMutation.mutate,
+    isCreating: createTarjetaMutation.isPending,
+    isUpdating: updateTarjetaMutation.isPending,
+    isDeleting: deleteTarjetaMutation.isPending,
+  };
+};
