@@ -283,19 +283,24 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
                   <FormItem>
                     <FormLabel>Cliente</FormLabel>
                     <Select onValueChange={(value) => {
-                      field.onChange(value)
-                      const cliente = clientes.find(c => c.id === value)
-                      if (cliente) {
-                        form.setValue("cliente_nombre", `${cliente.nombre} ${cliente.apellido}`)
+                      if (value === "consumidor_final") {
+                        field.onChange(undefined)
+                        form.setValue("cliente_nombre", "Consumidor Final")
+                      } else {
+                        field.onChange(value)
+                        const cliente = clientes.find(c => c.id === value)
+                        if (cliente) {
+                          form.setValue("cliente_nombre", `${cliente.nombre} ${cliente.apellido}`)
+                        }
                       }
-                    }} defaultValue={field.value}>
+                    }} value={field.value || "consumidor_final"}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Seleccionar cliente" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">Consumidor Final</SelectItem>
+                        <SelectItem value="consumidor_final">Consumidor Final</SelectItem>
                         {clientes.map((cliente) => (
                           <SelectItem key={cliente.id} value={cliente.id!}>
                             {cliente.nombre} {cliente.apellido} - {cliente.cuit}
