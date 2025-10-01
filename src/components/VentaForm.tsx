@@ -498,6 +498,7 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
                   </div>
                 )}
               </CardContent>
+            </Card>
             {/* Métodos de pago */}
             <div className="bg-muted p-4 rounded-lg">
               <h4 className="font-semibold mb-4">Método de Pago</h4>
