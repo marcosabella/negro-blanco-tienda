@@ -20,13 +20,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useVentas } from "@/hooks/useVentas"
 import { useClientes } from "@/hooks/useClientes"
 import { useTarjetas } from "@/hooks/useTarjetas"
 import { useTarjetaCuotas } from "@/hooks/useTarjetaCuotas"
 import { useBancos } from "@/hooks/useBancos"
-import { Venta, TIPOS_PAGO, TIPOS_COMPROBANTE } from "@/types/venta"
+import { useProductos } from "@/hooks/useProductos"
+import { Venta, VentaItem, TIPOS_PAGO, TIPOS_COMPROBANTE } from "@/types/venta"
 import { useToast } from "@/hooks/use-toast"
+import { Trash2, Plus } from "lucide-react"
 
 const ventaSchema = z.object({
   numero_comprobante: z.string().min(1, "Número de comprobante requerido"),
@@ -73,8 +76,14 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
   const { data: clientes = [] } = useClientes()
   const { tarjetas } = useTarjetas()
   const { bancos } = useBancos()
+  const { productos } = useProductos()
   const [selectedTarjetaId, setSelectedTarjetaId] = useState<string>("")
   const { tarjetaCuotas } = useTarjetaCuotas(selectedTarjetaId)
+  
+  // Estado para items de venta
+  const [ventaItems, setVentaItems] = useState<Omit<VentaItem, "id" | "venta_id" | "created_at" | "updated_at">[]>([])
+  const [selectedProductoId, setSelectedProductoId] = useState<string>("")
+  const [cantidad, setCantidad] = useState<number>(1)
 
   const form = useForm<VentaFormData>({
     resolver: zodResolver(ventaSchema),
@@ -118,6 +127,18 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
       if (venta.tarjeta_id) {
         setSelectedTarjetaId(venta.tarjeta_id)
       }
+      // Cargar items existentes
+      if (venta.venta_items) {
+        setVentaItems(venta.venta_items.map(item => ({
+          producto_id: item.producto_id,
+          cantidad: item.cantidad,
+          precio_unitario: item.precio_unitario,
+          porcentaje_iva: item.porcentaje_iva,
+          monto_iva: item.monto_iva,
+          subtotal: item.subtotal,
+          total: item.total,
+        })))
+      }
     }
   }, [venta, form])
 
@@ -141,6 +162,18 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
     }
   }, [watchTarjetaId])
 
+  // Calcular totales cuando cambian los items
+  useEffect(() => {
+    const subtotal = ventaItems.reduce((sum, item) => sum + item.subtotal, 0)
+    const totalIva = ventaItems.reduce((sum, item) => sum + item.monto_iva, 0)
+    const recargoCuotas = form.getValues("recargo_cuotas") || 0
+    const total = subtotal + totalIva + recargoCuotas
+    
+    form.setValue("subtotal", subtotal)
+    form.setValue("total_iva", totalIva)
+    form.setValue("total", total)
+  }, [ventaItems, form])
+
   // Calcular recargo cuando cambian las cuotas
   useEffect(() => {
     if (watchTarjetaId && watchCuotas && tarjetaCuotas.length > 0) {
@@ -160,7 +193,57 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
     }
   }, [watchTarjetaId, watchCuotas, tarjetaCuotas, form])
 
+  // Función para agregar producto
+  const agregarProducto = () => {
+    if (!selectedProductoId || cantidad <= 0) {
+      toast({
+        title: "Error",
+        description: "Seleccione un producto y cantidad válida",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const producto = productos.find(p => p.id === selectedProductoId)
+    if (!producto) return
+
+    const precioUnitario = Number(producto.precio_venta)
+    const porcentajeIva = Number(producto.porcentaje_iva)
+    const subtotal = precioUnitario * cantidad
+    const montoIva = (subtotal * porcentajeIva) / 100
+    const total = subtotal + montoIva
+
+    const nuevoItem: Omit<VentaItem, "id" | "venta_id" | "created_at" | "updated_at"> = {
+      producto_id: selectedProductoId,
+      cantidad,
+      precio_unitario: precioUnitario,
+      porcentaje_iva: porcentajeIva,
+      monto_iva: montoIva,
+      subtotal,
+      total,
+    }
+
+    setVentaItems([...ventaItems, nuevoItem])
+    setSelectedProductoId("")
+    setCantidad(1)
+  }
+
+  // Función para eliminar producto
+  const eliminarProducto = (index: number) => {
+    const nuevosItems = ventaItems.filter((_, i) => i !== index)
+    setVentaItems(nuevosItems)
+  }
+
   const onSubmit = async (data: VentaFormData) => {
+    if (ventaItems.length === 0) {
+      toast({
+        title: "Error",
+        description: "Debe agregar al menos un producto a la venta",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       const ventaData: Omit<Venta, "id" | "created_at" | "updated_at"> = {
         numero_comprobante: data.numero_comprobante,
@@ -183,7 +266,7 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
         await updateVenta({
           ventaId: venta.id,
           venta: ventaData,
-          items: [] // TODO: Add items support
+          items: ventaItems
         })
         toast({
           title: "Venta actualizada",
@@ -192,7 +275,7 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
       } else {
         await createVenta({
           venta: ventaData,
-          items: [] // TODO: Add items support
+          items: ventaItems
         })
         toast({
           title: "Venta creada",
@@ -328,73 +411,151 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
               )}
             />
 
+            {/* Selección de Productos */}
+            <div className="bg-muted p-4 rounded-lg space-y-4">
+              <h4 className="font-semibold">Productos</h4>
+              
+              <div className="grid grid-cols-12 gap-4">
+                <div className="col-span-7">
+                  <label className="text-sm font-medium">Producto</label>
+                  <Select value={selectedProductoId} onValueChange={setSelectedProductoId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar producto" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {productos.map((producto) => (
+                        <SelectItem key={producto.id} value={producto.id!}>
+                          {producto.cod_producto} - {producto.descripcion} - ${Number(producto.precio_venta).toFixed(2)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="col-span-3">
+                  <label className="text-sm font-medium">Cantidad</label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={cantidad}
+                    onChange={(e) => setCantidad(Number(e.target.value))}
+                  />
+                </div>
+                
+                <div className="col-span-2 flex items-end">
+                  <Button type="button" onClick={agregarProducto} className="w-full">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Agregar
+                  </Button>
+                </div>
+              </div>
+
+              {/* Tabla de items */}
+              {ventaItems.length > 0 && (
+                <div className="border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Producto</TableHead>
+                        <TableHead className="text-right">Cantidad</TableHead>
+                        <TableHead className="text-right">Precio Unit.</TableHead>
+                        <TableHead className="text-right">IVA %</TableHead>
+                        <TableHead className="text-right">Subtotal</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                        <TableHead className="w-[50px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {ventaItems.map((item, index) => {
+                        const producto = productos.find(p => p.id === item.producto_id)
+                        return (
+                          <TableRow key={index}>
+                            <TableCell>
+                              {producto ? `${producto.cod_producto} - ${producto.descripcion}` : 'Producto no encontrado'}
+                            </TableCell>
+                            <TableCell className="text-right">{item.cantidad}</TableCell>
+                            <TableCell className="text-right">${item.precio_unitario.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">{item.porcentaje_iva}%</TableCell>
+                            <TableCell className="text-right">${item.subtotal.toFixed(2)}</TableCell>
+                            <TableCell className="text-right font-semibold">${item.total.toFixed(2)}</TableCell>
+                            <TableCell>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => eliminarProducto(index)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+
             {/* Métodos de pago */}
             <div className="bg-muted p-4 rounded-lg">
               <h4 className="font-semibold mb-4">Método de Pago</h4>
               
-              <div className="grid grid-cols-3 gap-4">
-                <FormField
-                  control={form.control}
-                  name="tipo_pago"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tipo de Pago</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccionar tipo" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {TIPOS_PAGO.map((tipo) => (
-                            <SelectItem key={tipo.value} value={tipo.value}>
-                              {tipo.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="subtotal"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Subtotal</FormLabel>
+              <FormField
+                control={form.control}
+                name="tipo_pago"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo de Pago</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
-                        />
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar tipo" />
+                        </SelectTrigger>
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                      <SelectContent>
+                        {TIPOS_PAGO.map((tipo) => (
+                          <SelectItem key={tipo.value} value={tipo.value}>
+                            {tipo.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                <FormField
-                  control={form.control}
-                  name="total_iva"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>IVA</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <div className="grid grid-cols-3 gap-4 mt-4">
+                <div>
+                  <label className="text-sm font-medium">Subtotal</label>
+                  <Input
+                    type="number"
+                    value={form.watch("subtotal").toFixed(2)}
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">IVA</label>
+                  <Input
+                    type="number"
+                    value={form.watch("total_iva").toFixed(2)}
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Total</label>
+                  <Input
+                    type="number"
+                    value={form.watch("total").toFixed(2)}
+                    disabled
+                    className="bg-muted font-semibold text-lg"
+                  />
+                </div>
               </div>
 
               {/* Selector de banco para transferencias */}
@@ -494,28 +655,6 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
                   )}
                 </div>
               )}
-
-              <div className="mt-4">
-                <FormField
-                  control={form.control}
-                  name="total"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Total</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
-                          className="font-semibold text-lg"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
             </div>
 
             <FormField
