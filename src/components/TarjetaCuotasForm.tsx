@@ -31,7 +31,16 @@ interface TarjetaCuotasFormProps {
 
 export const TarjetaCuotasForm = ({ cuota, onSuccess }: TarjetaCuotasFormProps) => {
   const { tarjetas } = useTarjetas();
-  const { tarjetaCuotas: cuotas, createTarjetaCuota, updateTarjetaCuota, deleteTarjetaCuota, loading } = useTarjetaCuotas();
+  const [selectedTarjetaId, setSelectedTarjetaId] = useState<string>("");
+  
+  // Get all cuotas without filtering by tarjeta
+  const { tarjetaCuotas: todasLasCuotas, createTarjetaCuota, updateTarjetaCuota, deleteTarjetaCuota, loading } = useTarjetaCuotas();
+  
+  // Get cuotas for selected tarjeta
+  const { tarjetaCuotas: cuotasTarjetaSeleccionada } = useTarjetaCuotas(selectedTarjetaId);
+  
+  // Show all cuotas or filtered by selected tarjeta
+  const cuotasAMostrar = selectedTarjetaId ? cuotasTarjetaSeleccionada : todasLasCuotas;
   const [editingCuota, setEditingCuota] = useState<TarjetaCuota | null>(null);
 
   const form = useForm<CuotaFormData>({
@@ -212,6 +221,24 @@ export const TarjetaCuotasForm = ({ cuota, onSuccess }: TarjetaCuotasFormProps) 
       <Card>
         <CardHeader>
           <CardTitle>Configuraciones de Cuotas Existentes</CardTitle>
+          <div className="flex gap-4 items-center">
+            <div className="flex-1">
+              <label className="text-sm font-medium">Filtrar por Tarjeta</label>
+              <Select value={selectedTarjetaId} onValueChange={setSelectedTarjetaId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todas las tarjetas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Todas las tarjetas</SelectItem>
+                  {tarjetas.map((tarjeta) => (
+                    <SelectItem key={tarjeta.id} value={tarjeta.id}>
+                      {tarjeta.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -226,7 +253,7 @@ export const TarjetaCuotasForm = ({ cuota, onSuccess }: TarjetaCuotasFormProps) 
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {cuotas.map((cuota) => (
+                {(cuotasAMostrar || []).map((cuota) => (
                   <TableRow key={cuota.id}>
                     <TableCell className="font-medium">
                       {cuota.tarjeta?.nombre}
@@ -270,10 +297,13 @@ export const TarjetaCuotasForm = ({ cuota, onSuccess }: TarjetaCuotasFormProps) 
             </Table>
           </div>
 
-          {cuotas.length === 0 && (
+          {(!cuotasAMostrar || cuotasAMostrar.length === 0) && (
             <div className="text-center py-8">
               <p className="text-muted-foreground">
-                No hay configuraciones de cuotas registradas
+                {selectedTarjetaId 
+                  ? "No hay configuraciones de cuotas para esta tarjeta" 
+                  : "No hay configuraciones de cuotas registradas"
+                }
               </p>
             </div>
           )}
