@@ -412,7 +412,93 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
             />
 
             {/* Selección de Productos */}
-            <div className="bg-muted p-4 rounded-lg space-y-4">
+            <Card className="bg-muted">
+              <CardHeader>
+                <CardTitle className="text-lg">Productos de la Venta</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-12 gap-4">
+                  <div className="col-span-7">
+                    <label className="text-sm font-medium">Producto</label>
+                    <Select value={selectedProductoId} onValueChange={setSelectedProductoId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar producto" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {productos.map((producto) => (
+                          <SelectItem key={producto.id} value={producto.id}>
+                            {producto.cod_producto} - {producto.descripcion} - ${Number(producto.precio_venta).toFixed(2)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="col-span-3">
+                    <label className="text-sm font-medium">Cantidad</label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={cantidad}
+                      onChange={(e) => setCantidad(Number(e.target.value))}
+                    />
+                  </div>
+                  
+                  <div className="col-span-2 flex items-end">
+                    <Button type="button" onClick={agregarProducto} className="w-full">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Agregar
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Tabla de items */}
+                {ventaItems.length > 0 && (
+                  <div className="border rounded-lg bg-background">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Producto</TableHead>
+                          <TableHead className="text-right">Cantidad</TableHead>
+                          <TableHead className="text-right">Precio Unit.</TableHead>
+                          <TableHead className="text-right">IVA %</TableHead>
+                          <TableHead className="text-right">Subtotal</TableHead>
+                          <TableHead className="text-right">Total</TableHead>
+                          <TableHead className="w-[50px]"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {ventaItems.map((item, index) => {
+                          const producto = productos.find(p => p.id === item.producto_id)
+                          return (
+                            <TableRow key={index}>
+                              <TableCell>
+                                {producto ? `${producto.cod_producto} - ${producto.descripcion}` : 'Producto no encontrado'}
+                              </TableCell>
+                              <TableCell className="text-right">{item.cantidad}</TableCell>
+                              <TableCell className="text-right">${item.precio_unitario.toFixed(2)}</TableCell>
+                              <TableCell className="text-right">{item.porcentaje_iva}%</TableCell>
+                              <TableCell className="text-right">${item.subtotal.toFixed(2)}</TableCell>
+                              <TableCell className="text-right font-semibold">${item.total.toFixed(2)}</TableCell>
+                              <TableCell>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => eliminarProducto(index)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
               <h4 className="font-semibold">Productos</h4>
               
               <div className="grid grid-cols-12 gap-4">
