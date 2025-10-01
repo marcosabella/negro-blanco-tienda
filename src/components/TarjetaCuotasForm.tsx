@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, CreditCard as Edit, Trash2 } from "lucide-react";
 import { useTarjetas } from "@/hooks/useTarjetas";
 import { useTarjetaCuotas } from "@/hooks/useTarjetaCuotas";
 import { TarjetaCuota, CUOTAS_PREDEFINIDAS } from "@/types/tarjeta";
