@@ -115,10 +115,12 @@ export type Database = {
           cliente_id: string
           concepto: string
           created_at: string
+          cuotas: number | null
           fecha_movimiento: string
           id: string
           monto: number
           observaciones: string | null
+          tarjeta_id: string | null
           tipo_movimiento: string
           updated_at: string
           venta_id: string | null
@@ -127,10 +129,12 @@ export type Database = {
           cliente_id: string
           concepto: string
           created_at?: string
+          cuotas?: number | null
           fecha_movimiento?: string
           id?: string
           monto?: number
           observaciones?: string | null
+          tarjeta_id?: string | null
           tipo_movimiento: string
           updated_at?: string
           venta_id?: string | null
@@ -139,15 +143,24 @@ export type Database = {
           cliente_id?: string
           concepto?: string
           created_at?: string
+          cuotas?: number | null
           fecha_movimiento?: string
           id?: string
           monto?: number
           observaciones?: string | null
+          tarjeta_id?: string | null
           tipo_movimiento?: string
           updated_at?: string
           venta_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "cuenta_corriente_tarjeta_id_fkey"
+            columns: ["tarjeta_id"]
+            isOneToOne: false
+            referencedRelation: "tarjetas_credito"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fk_cuenta_corriente_cliente"
             columns: ["cliente_id"]
@@ -399,6 +412,71 @@ export type Database = {
           },
         ]
       }
+      tarjeta_cuotas: {
+        Row: {
+          activa: boolean
+          cantidad_cuotas: number
+          created_at: string
+          id: string
+          porcentaje_recargo: number
+          tarjeta_id: string
+          updated_at: string
+        }
+        Insert: {
+          activa?: boolean
+          cantidad_cuotas: number
+          created_at?: string
+          id?: string
+          porcentaje_recargo?: number
+          tarjeta_id: string
+          updated_at?: string
+        }
+        Update: {
+          activa?: boolean
+          cantidad_cuotas?: number
+          created_at?: string
+          id?: string
+          porcentaje_recargo?: number
+          tarjeta_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tarjeta_cuotas_tarjeta_id_fkey"
+            columns: ["tarjeta_id"]
+            isOneToOne: false
+            referencedRelation: "tarjetas_credito"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tarjetas_credito: {
+        Row: {
+          activa: boolean
+          created_at: string
+          id: string
+          nombre: string
+          observaciones: string | null
+          updated_at: string
+        }
+        Insert: {
+          activa?: boolean
+          created_at?: string
+          id?: string
+          nombre: string
+          observaciones?: string | null
+          updated_at?: string
+        }
+        Update: {
+          activa?: boolean
+          created_at?: string
+          id?: string
+          nombre?: string
+          observaciones?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       venta_items: {
         Row: {
           cantidad: number
@@ -462,11 +540,14 @@ export type Database = {
           cliente_id: string | null
           cliente_nombre: string | null
           created_at: string
+          cuotas: number | null
           fecha_venta: string
           id: string
           numero_comprobante: string
           observaciones: string | null
+          recargo_cuotas: number | null
           subtotal: number
+          tarjeta_id: string | null
           tipo_comprobante: Database["public"]["Enums"]["tipo_comprobante"]
           tipo_pago: Database["public"]["Enums"]["tipo_pago"]
           total: number
@@ -478,11 +559,14 @@ export type Database = {
           cliente_id?: string | null
           cliente_nombre?: string | null
           created_at?: string
+          cuotas?: number | null
           fecha_venta?: string
           id?: string
           numero_comprobante: string
           observaciones?: string | null
+          recargo_cuotas?: number | null
           subtotal?: number
+          tarjeta_id?: string | null
           tipo_comprobante?: Database["public"]["Enums"]["tipo_comprobante"]
           tipo_pago?: Database["public"]["Enums"]["tipo_pago"]
           total?: number
@@ -494,11 +578,14 @@ export type Database = {
           cliente_id?: string | null
           cliente_nombre?: string | null
           created_at?: string
+          cuotas?: number | null
           fecha_venta?: string
           id?: string
           numero_comprobante?: string
           observaciones?: string | null
+          recargo_cuotas?: number | null
           subtotal?: number
+          tarjeta_id?: string | null
           tipo_comprobante?: Database["public"]["Enums"]["tipo_comprobante"]
           tipo_pago?: Database["public"]["Enums"]["tipo_pago"]
           total?: number
@@ -518,6 +605,13 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ventas_tarjeta_id_fkey"
+            columns: ["tarjeta_id"]
+            isOneToOne: false
+            referencedRelation: "tarjetas_credito"
             referencedColumns: ["id"]
           },
         ]

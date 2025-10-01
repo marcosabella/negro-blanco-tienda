@@ -70,7 +70,7 @@ type VentaFormProps = {
 const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
   const { toast } = useToast()
   const { createVenta, updateVenta } = useVentas()
-  const { clientes } = useClientes()
+  const { data: clientes = [] } = useClientes()
   const { tarjetas } = useTarjetas()
   const { bancos } = useBancos()
   const [selectedTarjetaId, setSelectedTarjetaId] = useState<string>("")
@@ -162,24 +162,38 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
 
   const onSubmit = async (data: VentaFormData) => {
     try {
-      const ventaData = {
-        ...data,
+      const ventaData: Omit<Venta, "id" | "created_at" | "updated_at"> = {
+        numero_comprobante: data.numero_comprobante,
         fecha_venta: new Date(data.fecha_venta).toISOString(),
-        cliente_id: data.cliente_id || null,
-        banco_id: data.banco_id || null,
-        tarjeta_id: data.tarjeta_id || null,
+        tipo_pago: data.tipo_pago,
+        tipo_comprobante: data.tipo_comprobante,
+        cliente_nombre: data.cliente_nombre,
+        subtotal: data.subtotal,
+        total_iva: data.total_iva,
+        total: data.total,
+        cliente_id: data.cliente_id || undefined,
+        banco_id: data.banco_id || undefined,
+        tarjeta_id: data.tarjeta_id || undefined,
         cuotas: data.cuotas || 1,
         recargo_cuotas: data.recargo_cuotas || 0,
+        observaciones: data.observaciones,
       }
 
       if (venta?.id) {
-        await updateVenta(venta.id, ventaData)
+        await updateVenta({
+          ventaId: venta.id,
+          venta: ventaData,
+          items: [] // TODO: Add items support
+        })
         toast({
           title: "Venta actualizada",
           description: "La venta se ha actualizado correctamente.",
         })
       } else {
-        await createVenta(ventaData)
+        await createVenta({
+          venta: ventaData,
+          items: [] // TODO: Add items support
+        })
         toast({
           title: "Venta creada",
           description: "La venta se ha creado correctamente.",

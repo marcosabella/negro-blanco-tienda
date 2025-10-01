@@ -334,12 +334,7 @@ export const CuentaCorrienteList = () => {
                                 )}
                                 {movimiento.tarjeta_id && movimiento.tarjeta && (
                                   <div className="text-xs text-muted-foreground">
-                                    {movimiento.tarjeta.nombre} - {movimiento.cuotas} cuotas
-                                  </div>
-                                )}
-                                {movimiento.tarjeta_id && movimiento.tarjeta && (
-                                  <div className="text-xs text-muted-foreground">
-                                    {movimiento.tarjeta.nombre} - {movimiento.cuotas} cuotas
+                                    Tarjeta - {movimiento.cuotas} cuotas
                                   </div>
                                 )}
                               </div>

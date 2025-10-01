@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Search } from "lucide-react";
 import { useCuentaCorriente } from "@/hooks/useCuentaCorriente";
 import { useClientes } from "@/hooks/useClientes";
+import { useTarjetas } from "@/hooks/useTarjetas";
+import { useTarjetaCuotas } from "@/hooks/useTarjetaCuotas";
 import { CONCEPTOS_MOVIMIENTO } from "@/types/cuenta-corriente";
 import { format } from "date-fns";
 
@@ -22,6 +24,8 @@ const movimientoSchema = z.object({
   concepto: z.string().min(1, "Concepto es requerido"),
   fecha_movimiento: z.string(),
   observaciones: z.string().optional(),
+  tarjeta_id: z.string().optional(),
+  cuotas: z.number().optional(),
 });
 
 interface CuentaCorrienteFormProps {
@@ -37,6 +41,12 @@ export const CuentaCorrienteForm = ({ onSuccess }: CuentaCorrienteFormProps) => 
   const [clientSearchOpen, setClientSearchOpen] = useState(false);
   const [clientSearchTerm, setClientSearchTerm] = useState("");
   const [selectedClient, setSelectedClient] = useState<{ id: string; nombre: string; apellido: string } | null>(null);
+  const [selectedTarjetaId, setSelectedTarjetaId] = useState<string>("");
+  
+  const { tarjetas } = useTarjetas();
+  const { tarjetaCuotas } = useTarjetaCuotas(selectedTarjetaId);
+  const tarjetasActivas = tarjetas.filter(t => t.activa);
+  const cuotasDisponibles = tarjetaCuotas.filter(c => c.activa);
 
   const filteredClientes = clientes.filter(cliente =>
     cliente.nombre.toLowerCase().includes(clientSearchTerm.toLowerCase()) ||
@@ -53,18 +63,28 @@ export const CuentaCorrienteForm = ({ onSuccess }: CuentaCorrienteFormProps) => 
       concepto: "",
       fecha_movimiento: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
       observaciones: "",
+      tarjeta_id: "",
+      cuotas: 1,
     },
   });
 
   const onSubmit = (values: z.infer<typeof movimientoSchema>) => {
-    createMovimiento({
+    const movimientoData: any = {
       cliente_id: values.cliente_id,
       tipo_movimiento: values.tipo_movimiento,
       monto: values.monto,
       concepto: values.concepto,
       fecha_movimiento: new Date(values.fecha_movimiento).toISOString(),
       observaciones: values.observaciones,
-    });
+    };
+    
+    // Add card-specific fields if payment is with card
+    if (values.concepto === "pago_tarjeta" && values.tarjeta_id) {
+      movimientoData.tarjeta_id = values.tarjeta_id;
+      movimientoData.cuotas = values.cuotas || 1;
+    }
+    
+    createMovimiento(movimientoData);
     onSuccess();
   };
 
