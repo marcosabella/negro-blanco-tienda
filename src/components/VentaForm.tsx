@@ -83,7 +83,10 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
   // Estado para items de venta
   const [ventaItems, setVentaItems] = useState<Omit<VentaItem, "id" | "venta_id" | "created_at" | "updated_at">[]>([])
   const [selectedProductoId, setSelectedProductoId] = useState<string>("")
+  const [selectedProducto, setSelectedProducto] = useState<{ id: string; cod_producto: string; descripcion: string; precio_venta: number } | null>(null)
   const [cantidad, setCantidad] = useState<number>(1)
+  const [productSearchOpen, setProductSearchOpen] = useState(false)
+  const [productSearchTerm, setProductSearchTerm] = useState("")
 
   const form = useForm<VentaFormData>({
     resolver: zodResolver(ventaSchema),
@@ -193,6 +196,12 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
     }
   }, [watchTarjetaId, watchCuotas, tarjetaCuotas, form])
 
+  // Filtrar productos por término de búsqueda
+  const filteredProductos = productos.filter(producto =>
+    producto.descripcion.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+    producto.cod_producto.toLowerCase().includes(productSearchTerm.toLowerCase())
+  )
+
   // Función para agregar producto
   const agregarProducto = () => {
     if (!selectedProductoId || cantidad <= 0) {
@@ -225,6 +234,7 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
 
     setVentaItems([...ventaItems, nuevoItem])
     setSelectedProductoId("")
+    setSelectedProducto(null)
     setCantidad(1)
   }
 
@@ -420,20 +430,74 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
                 <div className="grid grid-cols-12 gap-4">
                   <div className="col-span-7">
                     <label className="text-sm font-medium">Producto</label>
-                    <Select value={selectedProductoId} onValueChange={setSelectedProductoId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar producto" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {productos.map((producto) => (
-                          <SelectItem key={producto.id} value={producto.id}>
-                            {producto.cod_producto} - {producto.descripcion} - ${Number(producto.precio_venta).toFixed(2)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-2">
+                      <Input
+                        value={selectedProducto ? `${selectedProducto.cod_producto} - ${selectedProducto.descripcion}` : ""}
+                        readOnly
+                        placeholder="Seleccionar producto..."
+                      />
+                      <Dialog open={productSearchOpen} onOpenChange={setProductSearchOpen}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setProductSearchOpen(true)}
+                        >
+                          <Search className="h-4 w-4" />
+                        </Button>
+                        <DialogContent className="max-w-2xl">
+                          <DialogHeader>
+                            <DialogTitle>Seleccionar Producto</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <div className="relative">
+                              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                placeholder="Buscar por código o descripción..."
+                                value={productSearchTerm}
+                                onChange={(e) => setProductSearchTerm(e.target.value)}
+                                className="pl-8"
+                              />
+                            </div>
+                            <div className="space-y-2 max-h-96 overflow-y-auto">
+                              {filteredProductos.map((producto) => (
+                                <Button
+                                  key={producto.id}
+                                  type="button"
+                                  variant="outline"
+                                  className="w-full justify-start text-left h-auto py-3"
+                                  onClick={() => {
+                                    setSelectedProductoId(producto.id);
+                                    setSelectedProducto({
+                                      id: producto.id,
+                                      cod_producto: producto.cod_producto,
+                                      descripcion: producto.descripcion,
+                                      precio_venta: Number(producto.precio_venta)
+                                    });
+                                    setProductSearchOpen(false);
+                                    setProductSearchTerm("");
+                                  }}
+                                >
+                                  <div className="flex flex-col gap-1">
+                                    <div className="font-medium">{producto.cod_producto} - {producto.descripcion}</div>
+                                    <div className="text-sm text-muted-foreground">
+                                      Precio: ${Number(producto.precio_venta).toFixed(2)} | Stock: {producto.stock}
+                                    </div>
+                                  </div>
+                                </Button>
+                              ))}
+                              {filteredProductos.length === 0 && productSearchTerm && (
+                                <p className="text-center text-muted-foreground py-4">
+                                  No se encontraron productos que coincidan con la búsqueda
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
                   </div>
-                  
+
                   <div className="col-span-3">
                     <label className="text-sm font-medium">Cantidad</label>
                     <Input
@@ -443,7 +507,7 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
                       onChange={(e) => setCantidad(Number(e.target.value))}
                     />
                   </div>
-                  
+
                   <div className="col-span-2 flex items-end">
                     <Button type="button" onClick={agregarProducto} className="w-full">
                       <Plus className="h-4 w-4 mr-2" />
