@@ -100,6 +100,14 @@ export const useVentas = () => {
       venta: Omit<Venta, "id" | "created_at" | "updated_at">; 
       items: Omit<VentaItem, "id" | "venta_id" | "created_at" | "updated_at">[] 
     }) => {
+      // First, delete any existing cuenta corriente movements for this sale
+      const { error: deleteCuentaError } = await supabase
+        .from("cuenta_corriente")
+        .delete()
+        .eq("venta_id", ventaId);
+
+      if (deleteCuentaError) throw deleteCuentaError;
+
       // Update venta
       const { data: ventaData, error: ventaError } = await supabase
         .from("ventas")
@@ -132,10 +140,27 @@ export const useVentas = () => {
         if (itemsError) throw itemsError;
       }
 
+      // If the updated payment type is "cta_cte" and there's a cliente_id, create debit movement
+      if (venta.tipo_pago === 'cta_cte' && venta.cliente_id) {
+        const { error: cuentaError } = await supabase
+          .from("cuenta_corriente")
+          .insert([{
+            cliente_id: venta.cliente_id,
+            tipo_movimiento: 'debito',
+            monto: venta.total,
+            concepto: 'venta_credito',
+            venta_id: ventaId,
+            fecha_movimiento: venta.fecha_venta,
+          }]);
+
+        if (cuentaError) throw cuentaError;
+      }
+
       return ventaData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ventas"] });
+      queryClient.invalidateQueries({ queryKey: ["cuenta-corriente"] });
       toast({
         title: "Éxito",
         description: "Venta actualizada correctamente",
