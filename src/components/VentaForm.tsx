@@ -88,6 +88,11 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
   const [cantidad, setCantidad] = useState<number>(1)
   const [productSearchOpen, setProductSearchOpen] = useState(false)
   const [productSearchTerm, setProductSearchTerm] = useState("")
+  
+  // Estado para búsqueda de clientes
+  const [clienteSearchOpen, setClienteSearchOpen] = useState(false)
+  const [clienteSearchTerm, setClienteSearchTerm] = useState("")
+  const [selectedCliente, setSelectedCliente] = useState<{ id: string; nombre: string; apellido: string; cuit: string } | null>(null)
 
   const form = useForm<VentaFormData>({
     resolver: zodResolver(ventaSchema),
@@ -201,6 +206,13 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
   const filteredProductos = productos.filter(producto =>
     producto.descripcion.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
     producto.cod_producto.toLowerCase().includes(productSearchTerm.toLowerCase())
+  )
+  
+  // Filtrar clientes por término de búsqueda
+  const filteredClientes = clientes.filter(cliente =>
+    cliente.nombre.toLowerCase().includes(clienteSearchTerm.toLowerCase()) ||
+    cliente.apellido.toLowerCase().includes(clienteSearchTerm.toLowerCase()) ||
+    cliente.cuit.includes(clienteSearchTerm)
   )
 
   // Función para agregar producto
@@ -376,51 +388,94 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Cliente</FormLabel>
-                    <Select onValueChange={(value) => {
-                      if (value === "consumidor_final") {
-                        field.onChange(undefined)
-                        form.setValue("cliente_nombre", "Consumidor Final")
-                      } else {
-                        field.onChange(value)
-                        const cliente = clientes.find(c => c.id === value)
-                        if (cliente) {
-                          form.setValue("cliente_nombre", `${cliente.nombre} ${cliente.apellido}`)
-                        }
-                      }
-                    }} value={field.value || "consumidor_final"}>
+                    <div className="flex gap-2">
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar cliente" />
-                        </SelectTrigger>
+                        <Input
+                          value={selectedCliente ? `${selectedCliente.nombre} ${selectedCliente.apellido} - ${selectedCliente.cuit}` : "Consumidor Final"}
+                          readOnly
+                          placeholder="Seleccionar cliente..."
+                        />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="consumidor_final">Consumidor Final</SelectItem>
-                        {clientes.map((cliente) => (
-                          <SelectItem key={cliente.id} value={cliente.id!}>
-                            {cliente.nombre} {cliente.apellido} - {cliente.cuit}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <Dialog open={clienteSearchOpen} onOpenChange={setClienteSearchOpen}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setClienteSearchOpen(true)}
+                        >
+                          <Search className="h-4 w-4 mr-2" />
+                          Buscar
+                        </Button>
+                        <DialogContent className="max-w-2xl">
+                          <DialogHeader>
+                            <DialogTitle>Seleccionar Cliente</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <div className="relative">
+                              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                placeholder="Buscar por nombre, apellido o CUIT..."
+                                value={clienteSearchTerm}
+                                onChange={(e) => setClienteSearchTerm(e.target.value)}
+                                className="pl-8"
+                              />
+                            </div>
+                            <div className="space-y-2 max-h-96 overflow-y-auto">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full justify-start text-left h-auto py-3"
+                                onClick={() => {
+                                  field.onChange(undefined);
+                                  form.setValue("cliente_nombre", "Consumidor Final");
+                                  setSelectedCliente(null);
+                                  setClienteSearchOpen(false);
+                                  setClienteSearchTerm("");
+                                }}
+                              >
+                                <div className="font-medium">Consumidor Final</div>
+                              </Button>
+                              {filteredClientes.map((cliente) => (
+                                <Button
+                                  key={cliente.id}
+                                  type="button"
+                                  variant="outline"
+                                  className="w-full justify-start text-left h-auto py-3"
+                                  onClick={() => {
+                                    field.onChange(cliente.id);
+                                    form.setValue("cliente_nombre", `${cliente.nombre} ${cliente.apellido}`);
+                                    setSelectedCliente({
+                                      id: cliente.id!,
+                                      nombre: cliente.nombre,
+                                      apellido: cliente.apellido,
+                                      cuit: cliente.cuit
+                                    });
+                                    setClienteSearchOpen(false);
+                                    setClienteSearchTerm("");
+                                  }}
+                                >
+                                  <div className="flex flex-col gap-1">
+                                    <div className="font-medium">{cliente.nombre} {cliente.apellido}</div>
+                                    <div className="text-sm text-muted-foreground">
+                                      CUIT: {cliente.cuit} | {cliente.localidad}, {cliente.provincia}
+                                    </div>
+                                  </div>
+                                </Button>
+                              ))}
+                              {filteredClientes.length === 0 && clienteSearchTerm && (
+                                <p className="text-center text-muted-foreground py-4">
+                                  No se encontraron clientes que coincidan con la búsqueda
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
-
-            <FormField
-              control={form.control}
-              name="cliente_nombre"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nombre del Cliente</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             {/* Selección de Productos */}
             <Card className="bg-muted">
