@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useVentas } from "@/hooks/useVentas"
 import { useClientes } from "@/hooks/useClientes"
 import { useTarjetas } from "@/hooks/useTarjetas"
@@ -29,7 +30,7 @@ import { useBancos } from "@/hooks/useBancos"
 import { useProductos } from "@/hooks/useProductos"
 import { Venta, VentaItem, TIPOS_PAGO, TIPOS_COMPROBANTE } from "@/types/venta"
 import { useToast } from "@/hooks/use-toast"
-import { Trash2, Plus } from "lucide-react"
+import { Trash2, Plus, Search } from "lucide-react"
 
 const ventaSchema = z.object({
   numero_comprobante: z.string().min(1, "Número de comprobante requerido"),
