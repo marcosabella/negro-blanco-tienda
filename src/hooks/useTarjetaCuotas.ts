@@ -7,29 +7,25 @@ export const useTarjetaCuotas = (tarjetaId?: string) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchTarjetaCuotas = async (id: string) => {
+  const fetchTarjetaCuotas = async (id?: string) => {
     try {
       setLoading(true)
       setError(null)
-      
-      // Si no hay tarjetaId, establecer array vacío y retornar
-      if (!id || id.trim() === '') {
-        setTarjetaCuotas([])
-        return
-      }
-      
+
       let query = supabase
         .from('tarjeta_cuotas')
         .select(`
           *,
-          tarjetas_credito (
+          tarjeta:tarjetas_credito (
             nombre
           )
         `)
-        .eq('activa', true)
         .order('cantidad_cuotas')
 
-      query = query.eq('tarjeta_id', id)
+      // Solo filtrar por tarjeta_id si se proporciona y no es "all"
+      if (id && id.trim() !== '' && id !== 'all') {
+        query = query.eq('tarjeta_id', id)
+      }
 
       const { data, error } = await query
 

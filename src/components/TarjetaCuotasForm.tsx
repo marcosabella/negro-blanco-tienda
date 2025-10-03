@@ -31,16 +31,11 @@ interface TarjetaCuotasFormProps {
 
 export const TarjetaCuotasForm = ({ cuota, onSuccess }: TarjetaCuotasFormProps) => {
   const { tarjetas } = useTarjetas();
-  const [selectedTarjetaId, setSelectedTarjetaId] = useState<string>("");
-  
-  // Get all cuotas without filtering by tarjeta
-  const { tarjetaCuotas: todasLasCuotas, createTarjetaCuota, updateTarjetaCuota, deleteTarjetaCuota, loading } = useTarjetaCuotas();
-  
-  // Get cuotas for selected tarjeta
-  const { tarjetaCuotas: cuotasTarjetaSeleccionada } = useTarjetaCuotas(selectedTarjetaId);
-  
-  // Show all cuotas or filtered by selected tarjeta
-  const cuotasAMostrar = (selectedTarjetaId && selectedTarjetaId !== "all") ? cuotasTarjetaSeleccionada : todasLasCuotas;
+  const [selectedTarjetaId, setSelectedTarjetaId] = useState<string>("all");
+
+  // Get cuotas based on selected tarjeta (empty or "all" = todas las cuotas)
+  const { tarjetaCuotas, createTarjetaCuota, updateTarjetaCuota, deleteTarjetaCuota, loading } = useTarjetaCuotas(selectedTarjetaId);
+
   const [editingCuota, setEditingCuota] = useState<TarjetaCuota | null>(null);
 
   const form = useForm<CuotaFormData>({
@@ -253,7 +248,7 @@ export const TarjetaCuotasForm = ({ cuota, onSuccess }: TarjetaCuotasFormProps) 
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(cuotasAMostrar || []).map((cuota) => (
+                {(tarjetaCuotas || []).map((cuota) => (
                   <TableRow key={cuota.id}>
                     <TableCell className="font-medium">
                       {cuota.tarjeta?.nombre}
@@ -297,7 +292,7 @@ export const TarjetaCuotasForm = ({ cuota, onSuccess }: TarjetaCuotasFormProps) 
             </Table>
           </div>
 
-          {(!cuotasAMostrar || cuotasAMostrar.length === 0) && (
+          {(!tarjetaCuotas || tarjetaCuotas.length === 0) && (
             <div className="text-center py-8">
               <p className="text-muted-foreground">
                 {selectedTarjetaId && selectedTarjetaId !== "all"
