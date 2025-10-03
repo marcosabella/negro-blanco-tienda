@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { supabase } from "@/integrations/supabase/client"
 import { useVentas } from "@/hooks/useVentas"
 import { useClientes } from "@/hooks/useClientes"
 import { useTarjetas } from "@/hooks/useTarjetas"
@@ -114,6 +115,43 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
   const watchTipoPago = form.watch("tipo_pago")
   const watchTarjetaId = form.watch("tarjeta_id")
   const watchCuotas = form.watch("cuotas")
+  const watchTipoComprobante = form.watch("tipo_comprobante")
+
+  // Generar número de comprobante automático cuando cambia el tipo
+  useEffect(() => {
+    const generarNumeroComprobante = async () => {
+      // Solo generar automáticamente si es una nueva venta
+      if (venta) return;
+      
+      const tipoComprobante = watchTipoComprobante;
+      if (!tipoComprobante) return;
+
+      try {
+        // Buscar el último número de comprobante para este tipo
+        const { data, error } = await supabase
+          .from("ventas")
+          .select("numero_comprobante")
+          .eq("tipo_comprobante", tipoComprobante)
+          .order("numero_comprobante", { ascending: false })
+          .limit(1);
+
+        if (error) throw error;
+
+        let nuevoNumero = "00001";
+        if (data && data.length > 0) {
+          // Extraer el número y sumar 1
+          const ultimoNumero = parseInt(data[0].numero_comprobante) || 0;
+          nuevoNumero = String(ultimoNumero + 1).padStart(5, "0");
+        }
+
+        form.setValue("numero_comprobante", nuevoNumero);
+      } catch (error) {
+        console.error("Error generando número de comprobante:", error);
+      }
+    };
+
+    generarNumeroComprobante();
+  }, [watchTipoComprobante, venta, form]);
 
   useEffect(() => {
     if (venta) {
@@ -334,7 +372,7 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
                   <FormItem>
                     <FormLabel>Número de Comprobante</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input {...field} readOnly className="bg-muted" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
