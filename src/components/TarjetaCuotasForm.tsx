@@ -40,7 +40,7 @@ export const TarjetaCuotasForm = ({ cuota, onSuccess }: TarjetaCuotasFormProps) 
   const { tarjetaCuotas: cuotasTarjetaSeleccionada } = useTarjetaCuotas(selectedTarjetaId);
   
   // Show all cuotas or filtered by selected tarjeta
-  const cuotasAMostrar = selectedTarjetaId ? cuotasTarjetaSeleccionada : todasLasCuotas;
+  const cuotasAMostrar = (selectedTarjetaId && selectedTarjetaId !== "all") ? cuotasTarjetaSeleccionada : todasLasCuotas;
   const [editingCuota, setEditingCuota] = useState<TarjetaCuota | null>(null);
 
   const form = useForm<CuotaFormData>({
@@ -229,7 +229,7 @@ export const TarjetaCuotasForm = ({ cuota, onSuccess }: TarjetaCuotasFormProps) 
                   <SelectValue placeholder="Todas las tarjetas" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas las tarjetas</SelectItem>
+                  <SelectItem value="all">Todas las tarjetas</SelectItem>
                   {tarjetas.map((tarjeta) => (
                     <SelectItem key={tarjeta.id} value={tarjeta.id}>
                       {tarjeta.nombre}
@@ -300,8 +300,8 @@ export const TarjetaCuotasForm = ({ cuota, onSuccess }: TarjetaCuotasFormProps) 
           {(!cuotasAMostrar || cuotasAMostrar.length === 0) && (
             <div className="text-center py-8">
               <p className="text-muted-foreground">
-                {selectedTarjetaId 
-                  ? "No hay configuraciones de cuotas para esta tarjeta" 
+                {selectedTarjetaId && selectedTarjetaId !== "all"
+                  ? "No hay configuraciones de cuotas para esta tarjeta"
                   : "No hay configuraciones de cuotas registradas"
                 }
               </p>
