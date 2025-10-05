@@ -88,11 +88,25 @@ export const ProductoForm = ({ producto, onClose }: ProductoFormProps) => {
     }
   }, [rubroId, subrubros]);
 
-  const onSubmit = (data: Producto) => {
+  // Cargar valores iniciales cuando se edita un producto
+  useEffect(() => {
     if (producto) {
-      updateProducto({ ...data, id: producto.id });
+      setValue("proveedor_id", producto.proveedor_id);
+      setValue("marca_id", producto.marca_id);
+      setValue("rubro_id", producto.rubro_id);
+      setValue("subrubro_id", producto.subrubro_id);
+      setValue("tipo_moneda", producto.tipo_moneda);
+    }
+  }, [producto, setValue]);
+
+  const onSubmit = (data: Producto) => {
+    // Limpiar datos relacionados antes de enviar
+    const { proveedor, marca, rubro, subrubro, ...cleanData } = data as any;
+    
+    if (producto) {
+      updateProducto({ ...cleanData, id: producto.id });
     } else {
-      createProducto(data);
+      createProducto(cleanData);
     }
     
     if (!producto) {
@@ -144,7 +158,10 @@ export const ProductoForm = ({ producto, onClose }: ProductoFormProps) => {
 
             <div className="space-y-2">
               <Label htmlFor="proveedor_id">Proveedor *</Label>
-              <Select onValueChange={(value) => setValue("proveedor_id", value)}>
+              <Select 
+                value={watch("proveedor_id")} 
+                onValueChange={(value) => setValue("proveedor_id", value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar proveedor" />
                 </SelectTrigger>
@@ -160,7 +177,10 @@ export const ProductoForm = ({ producto, onClose }: ProductoFormProps) => {
 
             <div className="space-y-2">
               <Label htmlFor="marca_id">Marca *</Label>
-              <Select onValueChange={(value) => setValue("marca_id", value)}>
+              <Select 
+                value={watch("marca_id")} 
+                onValueChange={(value) => setValue("marca_id", value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar marca" />
                 </SelectTrigger>
@@ -176,7 +196,10 @@ export const ProductoForm = ({ producto, onClose }: ProductoFormProps) => {
 
             <div className="space-y-2">
               <Label htmlFor="rubro_id">Rubro *</Label>
-              <Select onValueChange={(value) => setValue("rubro_id", value)}>
+              <Select 
+                value={watch("rubro_id")} 
+                onValueChange={(value) => setValue("rubro_id", value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar rubro" />
                 </SelectTrigger>
@@ -192,7 +215,10 @@ export const ProductoForm = ({ producto, onClose }: ProductoFormProps) => {
 
             <div className="space-y-2">
               <Label htmlFor="subrubro_id">SubRubro *</Label>
-              <Select onValueChange={(value) => setValue("subrubro_id", value)}>
+              <Select 
+                value={watch("subrubro_id")} 
+                onValueChange={(value) => setValue("subrubro_id", value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar subrubro" />
                 </SelectTrigger>
@@ -293,7 +319,10 @@ export const ProductoForm = ({ producto, onClose }: ProductoFormProps) => {
 
             <div className="space-y-2">
               <Label htmlFor="tipo_moneda">Tipo de Moneda</Label>
-              <Select onValueChange={(value) => setValue("tipo_moneda", value as "ARS" | "USD" | "USD_BLUE")}>
+              <Select 
+                value={watch("tipo_moneda")} 
+                onValueChange={(value) => setValue("tipo_moneda", value as "ARS" | "USD" | "USD_BLUE")}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar moneda" />
                 </SelectTrigger>
