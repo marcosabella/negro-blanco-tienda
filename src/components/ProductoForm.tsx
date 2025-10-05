@@ -70,12 +70,12 @@ export const ProductoForm = ({ producto, onClose }: ProductoFormProps) => {
     const utilidad = Number(porcentajeUtilidad) || 0;
     const descuento = Number(porcentajeDescuento) || 0;
     
-    // Fórmula: precio_costo + (precio_costo * iva/100) + (precio_costo * utilidad/100) - (precio_costo * descuento/100)
-    const montoIva = costo * (iva / 100);
-    const montoUtilidad = costo * (utilidad / 100);
+    // Fórmula: (precio_costo * (1 + utilidad/100) * (1 + iva/100)) - (precio_costo * descuento/100)
+    const precioConUtilidad = costo * (1 + utilidad / 100);
+    const precioConIva = precioConUtilidad * (1 + iva / 100);
     const montoDescuento = costo * (descuento / 100);
     
-    const precioVenta = costo + montoIva + montoUtilidad - montoDescuento;
+    const precioVenta = precioConIva - montoDescuento;
     
     setValue("precio_venta", Number(precioVenta.toFixed(2)));
   }, [precioCosto, porcentajeIva, porcentajeUtilidad, porcentajeDescuento, setValue]);
