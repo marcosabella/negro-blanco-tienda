@@ -1,5 +1,6 @@
-import { Users, Truck, Package, ShoppingCart, CreditCard, Building2 } from "lucide-react"
+import { Users, Truck, Package, ShoppingCart, CreditCard, Building2, FileText, ChevronDown } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
+import { useState } from "react"
 
 import {
   Sidebar,
@@ -10,8 +11,12 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 const menuItems = [
   { title: "Clientes", url: "/clientes", icon: Users },
@@ -23,13 +28,23 @@ const menuItems = [
   { title: "Tarjetas", url: "/tarjetas", icon: CreditCard },
 ]
 
+const listadosItems = [
+  { title: "Clientes", url: "/listados/clientes", icon: Users },
+  { title: "Proveedores", url: "/listados/proveedores", icon: Truck },
+  { title: "Productos", url: "/listados/productos", icon: Package },
+  { title: "Ventas", url: "/listados/ventas", icon: ShoppingCart },
+  { title: "Cuenta Corriente", url: "/listados/cuenta-corriente", icon: CreditCard },
+]
+
 export function AppSidebar() {
   const { state } = useSidebar()
   const location = useLocation()
   const currentPath = location.pathname
   const collapsed = state === "collapsed"
+  const [listadosOpen, setListadosOpen] = useState(false)
 
   const isActive = (path: string) => currentPath === path
+  const isListadosActive = currentPath.startsWith('/listados')
 
   return (
     <Sidebar collapsible="icon">
@@ -39,7 +54,7 @@ export function AppSidebar() {
             {!collapsed && "Comercio AR"}
           </h2>
         </div>
-        
+
         <SidebarGroup className="mt-4">
           <SidebarGroupLabel className="text-sidebar-foreground/70 px-4">
             {!collapsed && "Gestión"}
@@ -49,10 +64,10 @@ export function AppSidebar() {
             <SidebarMenu>
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
+                  <SidebarMenuButton
                     asChild
-                    className={`mx-2 ${isActive(item.url) 
-                      ? 'bg-sidebar-accent text-sidebar-accent-foreground' 
+                    className={`mx-2 ${isActive(item.url)
+                      ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                       : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
                     }`}
                   >
@@ -63,6 +78,46 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+
+              <Collapsible open={listadosOpen} onOpenChange={setListadosOpen}>
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      className={`mx-2 ${isListadosActive
+                        ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                        : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                      }`}
+                    >
+                      <FileText className="h-4 w-4" />
+                      {!collapsed && <span className="ml-3">Listados</span>}
+                      {!collapsed && (
+                        <ChevronDown
+                          className={`ml-auto h-4 w-4 transition-transform ${listadosOpen ? 'rotate-180' : ''}`}
+                        />
+                      )}
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  {!collapsed && (
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {listadosItems.map((item) => (
+                          <SidebarMenuSubItem key={item.title}>
+                            <SidebarMenuSubButton
+                              asChild
+                              className={isActive(item.url) ? 'bg-sidebar-accent/50' : ''}
+                            >
+                              <NavLink to={item.url}>
+                                <item.icon className="h-4 w-4" />
+                                <span className="ml-2">{item.title}</span>
+                              </NavLink>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  )}
+                </SidebarMenuItem>
+              </Collapsible>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

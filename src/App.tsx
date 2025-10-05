@@ -14,6 +14,11 @@ import CuentaCorriente from "./pages/CuentaCorriente";
 import Bancos from "./pages/Bancos";
 import Tarjetas from "./pages/Tarjetas";
 import NotFound from "./pages/NotFound";
+import ListadoClientes from "./pages/listados/ListadoClientes";
+import ListadoProveedores from "./pages/listados/ListadoProveedores";
+import ListadoProductos from "./pages/listados/ListadoProductos";
+import ListadoVentas from "./pages/listados/ListadoVentas";
+import ListadoCuentaCorriente from "./pages/listados/ListadoCuentaCorriente";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +46,11 @@ const App = () => (
           <Route path="/cuenta-corriente" element={<CuentaCorriente />} />
           <Route path="/bancos" element={<Bancos />} />
           <Route path="/tarjetas" element={<Tarjetas />} />
+          <Route path="/listados/clientes" element={<ListadoClientes />} />
+          <Route path="/listados/proveedores" element={<ListadoProveedores />} />
+          <Route path="/listados/productos" element={<ListadoProductos />} />
+          <Route path="/listados/ventas" element={<ListadoVentas />} />
+          <Route path="/listados/cuenta-corriente" element={<ListadoCuentaCorriente />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
               </main>
