@@ -127,24 +127,30 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
       if (!tipoComprobante) return;
 
       try {
-        // Buscar el último número de comprobante para este tipo
+        const puntoVenta = "0001"; // Punto de venta por defecto
+        
+        // Buscar el último número de comprobante para este tipo y punto de venta
         const { data, error } = await supabase
           .from("ventas")
           .select("numero_comprobante")
           .eq("tipo_comprobante", tipoComprobante)
+          .like("numero_comprobante", `${puntoVenta}-%`)
           .order("numero_comprobante", { ascending: false })
           .limit(1);
 
         if (error) throw error;
 
-        let nuevoNumero = "00001";
+        let nuevoNumero = "00000001";
         if (data && data.length > 0) {
-          // Extraer el número y sumar 1
-          const ultimoNumero = parseInt(data[0].numero_comprobante) || 0;
-          nuevoNumero = String(ultimoNumero + 1).padStart(5, "0");
+          // Extraer el número después del guión y sumar 1
+          const partes = data[0].numero_comprobante.split("-");
+          if (partes.length === 2) {
+            const ultimoNumero = parseInt(partes[1]) || 0;
+            nuevoNumero = String(ultimoNumero + 1).padStart(8, "0");
+          }
         }
 
-        form.setValue("numero_comprobante", nuevoNumero);
+        form.setValue("numero_comprobante", `${puntoVenta}-${nuevoNumero}`);
       } catch (error) {
         console.error("Error generando número de comprobante:", error);
       }
