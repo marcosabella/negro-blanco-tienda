@@ -60,8 +60,8 @@ export const useProductos = () => {
   const updateProductoMutation = useMutation({
     mutationFn: async ({ id, ...producto }: Partial<Producto> & { id: string }) => {
       // Excluir campos relacionados y calculados que no existen en la tabla
-      const { proveedor, marca, rubro, subrubro, ...cleanProducto } = producto as any;
-      
+      const { proveedor, marca, rubro, subrubro, precio_venta, created_at, updated_at, ...cleanProducto } = producto as any;
+
       const { data, error } = await supabase
         .from("productos")
         .update(cleanProducto)
