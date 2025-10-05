@@ -56,6 +56,29 @@ export const ProductoForm = ({ producto, onClose }: ProductoFormProps) => {
 
   // Watch rubro changes to filter subrubros
   const rubroId = watch("rubro_id");
+  
+  // Watch para calcular precio de venta
+  const precioCosto = watch("precio_costo");
+  const porcentajeIva = watch("porcentaje_iva");
+  const porcentajeUtilidad = watch("porcentaje_utilidad");
+  const porcentajeDescuento = watch("porcentaje_descuento");
+  
+  // Calcular precio de venta automáticamente
+  useEffect(() => {
+    const costo = Number(precioCosto) || 0;
+    const iva = Number(porcentajeIva) || 0;
+    const utilidad = Number(porcentajeUtilidad) || 0;
+    const descuento = Number(porcentajeDescuento) || 0;
+    
+    // Fórmula: precio_costo + (precio_costo * iva/100) + (precio_costo * utilidad/100) - (precio_costo * descuento/100)
+    const montoIva = costo * (iva / 100);
+    const montoUtilidad = costo * (utilidad / 100);
+    const montoDescuento = costo * (descuento / 100);
+    
+    const precioVenta = costo + montoIva + montoUtilidad - montoDescuento;
+    
+    setValue("precio_venta", Number(precioVenta.toFixed(2)));
+  }, [precioCosto, porcentajeIva, porcentajeUtilidad, porcentajeDescuento, setValue]);
 
   useEffect(() => {
     if (rubroId) {
@@ -236,6 +259,19 @@ export const ProductoForm = ({ producto, onClose }: ProductoFormProps) => {
                   min: { value: 0, message: "El porcentaje debe ser mayor a 0" }
                 })}
                 placeholder="0.00"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="precio_venta">Precio de Venta</Label>
+              <Input
+                id="precio_venta"
+                type="number"
+                step="0.01"
+                {...register("precio_venta")}
+                placeholder="0.00"
+                readOnly
+                className="bg-muted"
               />
             </div>
 
