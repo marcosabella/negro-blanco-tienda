@@ -1,208 +1,228 @@
 import { useState } from 'react';
-import { Plus, Search, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useProveedores, useDeleteProveedor, type Proveedor } from '@/hooks/useProveedores';
 import { ProveedorForm } from './ProveedorForm';
 
 export function ProveedoresList() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedProveedor, setSelectedProveedor] = useState<Proveedor | undefined>();
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  
-  const { data: proveedores, isLoading, error } = useProveedores();
+  const [selectedProveedor, setSelectedProveedor] = useState<Proveedor | null>(null);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+  const { data: proveedores = [], isLoading } = useProveedores();
   const deleteProveedor = useDeleteProveedor();
 
-  const filteredProveedores = proveedores?.filter(proveedor =>
+  const filteredProveedores = proveedores.filter(proveedor =>
     proveedor.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
     proveedor.apellido?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     proveedor.razon_social?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     proveedor.cuit.includes(searchTerm)
-  ) || [];
+  );
 
   const handleEdit = (proveedor: Proveedor) => {
     setSelectedProveedor(proveedor);
-    setIsFormOpen(true);
+    setIsEditDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    deleteProveedor.mutate(id);
+  const handleDelete = async (id: string) => {
+    await deleteProveedor.mutateAsync(id);
   };
 
-  const handleNewProveedor = () => {
-    setSelectedProveedor(undefined);
-    setIsFormOpen(true);
+  const handleCreateSuccess = () => {
+    setIsCreateDialogOpen(false);
   };
 
-  const handleCloseForm = () => {
-    setIsFormOpen(false);
-    setSelectedProveedor(undefined);
-  };
-
-  const getSituacionAfipBadge = (situacion: string) => {
-    const variants = {
-      'responsable_inscripto': 'default',
-      'monotributo': 'secondary',
-      'exento': 'outline',
-    } as const;
-
-    const labels = {
-      'responsable_inscripto': 'R.I.',
-      'monotributo': 'Monotributo',
-      'exento': 'Exento',
-    } as const;
-
-    return (
-      <Badge variant={variants[situacion as keyof typeof variants] || 'outline'}>
-        {labels[situacion as keyof typeof labels] || situacion}
-      </Badge>
-    );
+  const handleEditSuccess = () => {
+    setIsEditDialogOpen(false);
+    setSelectedProveedor(null);
   };
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center h-48">
-          <div className="animate-pulse text-muted-foreground">Cargando proveedores...</div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card>
-        <CardContent className="flex items-center justify-center h-48">
-          <div className="text-destructive">Error al cargar los proveedores</div>
-        </CardContent>
-      </Card>
+      <div className="flex justify-center items-center h-64">
+        <div className="text-muted-foreground">Cargando proveedores...</div>
+      </div>
     );
   }
 
   return (
-    <>
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <CardTitle className="text-xl font-semibold">Proveedores</CardTitle>
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              <div className="relative flex-1 sm:w-80">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Buscar por nombre, razón social o CUIT..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Button onClick={handleNewProveedor} className="whitespace-nowrap">
-                <Plus className="h-4 w-4 mr-2" />
-                Nuevo Proveedor
-              </Button>
+    <div className="space-y-6">
+      <div className="flex gap-4 items-center justify-between">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input
+            placeholder="Buscar proveedores..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Nuevo Proveedor
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Crear Nuevo Proveedor</DialogTitle>
+            </DialogHeader>
+            <ProveedorForm onSuccess={handleCreateSuccess} />
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {filteredProveedores.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <div className="text-center">
+              <h3 className="text-lg font-semibold mb-2">
+                {searchTerm ? 'No se encontraron proveedores' : 'No hay proveedores registrados'}
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                {searchTerm
+                  ? 'Intenta con otros términos de búsqueda'
+                  : 'Comienza agregando tu primer proveedor'
+                }
+              </p>
+              {!searchTerm && (
+                <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Agregar Proveedor
+                    </Button>
+                  </DialogTrigger>
+                </Dialog>
+              )}
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {filteredProveedores.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              {searchTerm ? 'No se encontraron proveedores que coincidan con la búsqueda.' : 'No hay proveedores registrados.'}
-            </div>
-          ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nombre/Razón Social</TableHead>
-                    <TableHead>CUIT</TableHead>
-                    <TableHead>Ubicación</TableHead>
-                    <TableHead>Contacto</TableHead>
-                    <TableHead>Situación AFIP</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredProveedores.map((proveedor) => (
-                    <TableRow key={proveedor.id}>
-                      <TableCell className="font-medium">
-                        {proveedor.tipo_persona === 'juridica' 
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {filteredProveedores.map((proveedor) => (
+            <Card key={proveedor.id} className="hover:shadow-md transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-4 mb-3">
+                      <h3 className="text-lg font-semibold">
+                        {proveedor.tipo_persona === 'juridica'
                           ? proveedor.razon_social
                           : `${proveedor.nombre} ${proveedor.apellido || ''}`.trim()
                         }
-                      </TableCell>
-                      <TableCell>{proveedor.cuit}</TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div>{proveedor.calle} {proveedor.numero}</div>
-                          <div className="text-muted-foreground">
-                            {proveedor.localidad}, {proveedor.provincia}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          {proveedor.telefono && <div>{proveedor.telefono}</div>}
-                          {proveedor.email && <div className="text-muted-foreground">{proveedor.email}</div>}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {getSituacionAfipBadge(proveedor.situacion_afip)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {proveedor.tipo_persona === 'fisica' ? 'Física' : 'Jurídica'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleEdit(proveedor)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Esta acción no se puede deshacer. Esto eliminará permanentemente el proveedor.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(proveedor.id!)}>
-                                  Eliminar
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                      </h3>
+                      <Badge variant="secondary">
+                        {proveedor.tipo_persona === 'fisica' ? 'Persona Física' : 'Persona Jurídica'}
+                      </Badge>
+                    </div>
 
-      <ProveedorForm
-        open={isFormOpen}
-        onOpenChange={handleCloseForm}
-        proveedor={selectedProveedor}
-      />
-    </>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium text-muted-foreground">CUIT:</span>
+                        <p>{proveedor.cuit}</p>
+                      </div>
+
+                      <div>
+                        <span className="font-medium text-muted-foreground">Dirección:</span>
+                        <p>{proveedor.calle} {proveedor.numero}, {proveedor.localidad}</p>
+                      </div>
+
+                      <div>
+                        <span className="font-medium text-muted-foreground">Situación AFIP:</span>
+                        <p>{proveedor.situacion_afip}</p>
+                      </div>
+
+                      {proveedor.telefono && (
+                        <div>
+                          <span className="font-medium text-muted-foreground">Teléfono:</span>
+                          <p>{proveedor.telefono}</p>
+                        </div>
+                      )}
+
+                      {proveedor.email && (
+                        <div>
+                          <span className="font-medium text-muted-foreground">Email:</span>
+                          <p>{proveedor.email}</p>
+                        </div>
+                      )}
+
+                      <div>
+                        <span className="font-medium text-muted-foreground">Provincia:</span>
+                        <p>{proveedor.provincia}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Dialog open={isEditDialogOpen && selectedProveedor?.id === proveedor.id} onOpenChange={(open) => {
+                      setIsEditDialogOpen(open);
+                      if (!open) setSelectedProveedor(null);
+                    }}>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(proveedor)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>Editar Proveedor</DialogTitle>
+                        </DialogHeader>
+                        {selectedProveedor && (
+                          <ProveedorForm
+                            proveedor={selectedProveedor}
+                            onSuccess={handleEditSuccess}
+                          />
+                        )}
+                      </DialogContent>
+                    </Dialog>
+
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>¿Eliminar proveedor?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta acción no se puede deshacer. Se eliminará permanentemente
+                            la información de {proveedor.tipo_persona === 'juridica'
+                              ? proveedor.razon_social
+                              : `${proveedor.nombre} ${proveedor.apellido || ''}`.trim()}.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => proveedor.id && handleDelete(proveedor.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Eliminar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

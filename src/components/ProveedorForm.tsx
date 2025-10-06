@@ -1,9 +1,7 @@
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -29,15 +27,14 @@ const proveedorSchema = z.object({
 type ProveedorFormData = z.infer<typeof proveedorSchema>;
 
 interface ProveedorFormProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   proveedor?: Proveedor;
+  onSuccess?: () => void;
 }
 
-export function ProveedorForm({ open, onOpenChange, proveedor }: ProveedorFormProps) {
+export function ProveedorForm({ proveedor, onSuccess }: ProveedorFormProps) {
   const createProveedor = useCreateProveedor();
   const updateProveedor = useUpdateProveedor();
-  
+
   const form = useForm<ProveedorFormData>({
     resolver: zodResolver(proveedorSchema),
     defaultValues: {
@@ -58,7 +55,7 @@ export function ProveedorForm({ open, onOpenChange, proveedor }: ProveedorFormPr
     },
   });
 
-  const onSubmit = (data: ProveedorFormData) => {
+  const onSubmit = async (data: ProveedorFormData) => {
     const proveedorData: Proveedor = {
       ...data,
       nombre: data.nombre,
@@ -77,27 +74,23 @@ export function ProveedorForm({ open, onOpenChange, proveedor }: ProveedorFormPr
       tipo_persona: data.tipo_persona,
     };
 
-    if (proveedor) {
-      updateProveedor.mutate({ ...proveedorData, id: proveedor.id! } as Proveedor);
-    } else {
-      createProveedor.mutate(proveedorData as Omit<Proveedor, 'id'>);
+    try {
+      if (proveedor) {
+        await updateProveedor.mutateAsync({ ...proveedorData, id: proveedor.id! } as Proveedor);
+      } else {
+        await createProveedor.mutateAsync(proveedorData as Omit<Proveedor, 'id'>);
+      }
+
+      form.reset();
+      onSuccess?.();
+    } catch (error) {
+      console.error('Error al guardar proveedor:', error);
     }
-    
-    onOpenChange(false);
-    form.reset();
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {proveedor ? 'Editar Proveedor' : 'Nuevo Proveedor'}
-          </DialogTitle>
-        </DialogHeader>
-        
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -326,16 +319,11 @@ export function ProveedorForm({ open, onOpenChange, proveedor }: ProveedorFormPr
             </div>
 
             <div className="flex justify-end space-x-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancelar
-              </Button>
               <Button type="submit" disabled={createProveedor.isPending || updateProveedor.isPending}>
                 {proveedor ? 'Actualizar' : 'Crear'} Proveedor
               </Button>
             </div>
           </form>
         </Form>
-      </DialogContent>
-    </Dialog>
   );
 }
