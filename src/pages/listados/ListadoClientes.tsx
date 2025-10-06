@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FileDown, Search, Users, Building2, UserCheck, Filter } from "lucide-react";
+import { FileDown, Search, Users, Building2, UserCheck, Filter, Printer } from "lucide-react";
 import { PROVINCIAS_ARGENTINA, SITUACIONES_AFIP } from "@/types/cliente";
 
 const ListadoClientes = () => {
@@ -96,6 +96,11 @@ const ListadoClientes = () => {
     setFilterTipoPersona("todas");
   };
 
+  // Función de impresión
+  const handlePrint = () => {
+    window.print();
+  };
+
   if (isLoading) {
     return (
       <div className="p-6">
@@ -131,14 +136,27 @@ const ListadoClientes = () => {
               Análisis completo y exportación de datos de clientes
             </p>
           </div>
-          <Button onClick={exportToCSV} disabled={!filteredClientes || filteredClientes.length === 0}>
-            <FileDown className="mr-2 h-4 w-4" />
-            Exportar CSV
-          </Button>
+          <div className="flex gap-2 print:hidden">
+            <Button 
+              variant="outline" 
+              onClick={handlePrint} 
+              disabled={!filteredClientes || filteredClientes.length === 0}
+            >
+              <Printer className="mr-2 h-4 w-4" />
+              Imprimir
+            </Button>
+            <Button 
+              onClick={exportToCSV} 
+              disabled={!filteredClientes || filteredClientes.length === 0}
+            >
+              <FileDown className="mr-2 h-4 w-4" />
+              Exportar CSV
+            </Button>
+          </div>
         </div>
 
         {/* Estadísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 print:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Clientes</CardTitle>
@@ -180,7 +198,7 @@ const ListadoClientes = () => {
         </div>
 
         {/* Filtros */}
-        <Card>
+        <Card className="print:hidden">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Filter className="h-5 w-5" />

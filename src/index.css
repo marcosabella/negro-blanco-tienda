@@ -104,3 +104,59 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Print styles for reports */
+@media print {
+  @page {
+    size: A4;
+    margin: 1.5cm;
+  }
+
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .print\:grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* Ensure proper page breaks */
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  /* Make sure cards and content are visible */
+  .bg-card,
+  .shadow {
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb;
+  }
+
+  /* Adjust text sizes for print */
+  h1 {
+    font-size: 24pt;
+  }
+
+  .text-sm {
+    font-size: 10pt;
+  }
+
+  /* Remove unnecessary spacing */
+  .space-y-6 > * + * {
+    margin-top: 1rem;
+  }
+}
