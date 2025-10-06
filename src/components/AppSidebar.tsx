@@ -1,4 +1,4 @@
-import { Users, Truck, Package, ShoppingCart, CreditCard, Building2, FileText, ChevronDown } from "lucide-react"
+import { Users, Truck, Package, ShoppingCart, CreditCard, Building2, FileText, ChevronDown, Settings } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 
@@ -24,6 +24,9 @@ const menuItems = [
   { title: "Productos", url: "/productos", icon: Package },
   { title: "Ventas", url: "/ventas", icon: ShoppingCart },
   { title: "Cuenta Corriente", url: "/cuenta-corriente", icon: CreditCard },
+]
+
+const configuracionItems = [
   { title: "Bancos", url: "/bancos", icon: Building2 },
   { title: "Tarjetas", url: "/tarjetas", icon: CreditCard },
 ]
@@ -41,9 +44,11 @@ export function AppSidebar() {
   const location = useLocation()
   const currentPath = location.pathname
   const collapsed = state === "collapsed"
+  const [configuracionOpen, setConfiguracionOpen] = useState(false)
   const [listadosOpen, setListadosOpen] = useState(false)
 
   const isActive = (path: string) => currentPath === path
+  const isConfiguracionActive = currentPath === '/bancos' || currentPath === '/tarjetas'
   const isListadosActive = currentPath.startsWith('/listados')
 
   return (
@@ -78,6 +83,46 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+
+              <Collapsible open={configuracionOpen} onOpenChange={setConfiguracionOpen}>
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      className={`mx-2 ${isConfiguracionActive
+                        ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                        : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                      }`}
+                    >
+                      <Settings className="h-4 w-4" />
+                      {!collapsed && <span className="ml-3">Configuración</span>}
+                      {!collapsed && (
+                        <ChevronDown
+                          className={`ml-auto h-4 w-4 transition-transform ${configuracionOpen ? 'rotate-180' : ''}`}
+                        />
+                      )}
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  {!collapsed && (
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {configuracionItems.map((item) => (
+                          <SidebarMenuSubItem key={item.title}>
+                            <SidebarMenuSubButton
+                              asChild
+                              className={isActive(item.url) ? 'bg-sidebar-accent/50' : ''}
+                            >
+                              <NavLink to={item.url}>
+                                <item.icon className="h-4 w-4" />
+                                <span className="ml-2">{item.title}</span>
+                              </NavLink>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  )}
+                </SidebarMenuItem>
+              </Collapsible>
 
               <Collapsible open={listadosOpen} onOpenChange={setListadosOpen}>
                 <SidebarMenuItem>
