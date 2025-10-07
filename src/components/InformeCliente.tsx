@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, TrendingUp, ShoppingCart, DollarSign, AlertCircle, Printer } from "lucide-react";
+import { Calendar, TrendingUp, ShoppingCart, DollarSign, CircleAlert as AlertCircle, Printer } from "lucide-react";
 import { Cliente } from "@/types/cliente";
 import { format, subMonths, subYears, startOfMonth, endOfMonth } from "date-fns";
 import { es } from "date-fns/locale";
