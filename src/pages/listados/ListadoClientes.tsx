@@ -21,8 +21,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FileDown, Search, Users, Building2, UserCheck, Filter, Printer } from "lucide-react";
+import { FileDown, Search, Users, Building2, UserCheck, Filter, Printer, FileText } from "lucide-react";
 import { PROVINCIAS_ARGENTINA, SITUACIONES_AFIP } from "@/types/cliente";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Cliente } from "@/types/cliente";
+import { InformeCliente } from "@/components/InformeCliente";
 
 const ListadoClientes = () => {
   const { data: clientes, isLoading } = useClientes();
@@ -30,6 +33,13 @@ const ListadoClientes = () => {
   const [filterProvincia, setFilterProvincia] = useState<string>("todas");
   const [filterSituacionAfip, setFilterSituacionAfip] = useState<string>("todas");
   const [filterTipoPersona, setFilterTipoPersona] = useState<string>("todas");
+  const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
+  const [isReportOpen, setIsReportOpen] = useState(false);
+
+  const handleOpenReport = (cliente: Cliente) => {
+    setSelectedCliente(cliente);
+    setIsReportOpen(true);
+  };
 
   // Filtrar y buscar clientes
   const filteredClientes = useMemo(() => {
@@ -305,6 +315,7 @@ const ListadoClientes = () => {
                       <TableHead>Contacto</TableHead>
                       <TableHead>Situación AFIP</TableHead>
                       <TableHead>Tipo</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -334,6 +345,16 @@ const ListadoClientes = () => {
                             {cliente.tipo_persona === 'fisica' ? 'Física' : 'Jurídica'}
                           </Badge>
                         </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenReport(cliente)}
+                          >
+                            <FileText className="h-4 w-4 mr-2" />
+                            Ver Informe
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -342,6 +363,17 @@ const ListadoClientes = () => {
             )}
           </CardContent>
         </Card>
+
+        <Dialog open={isReportOpen} onOpenChange={setIsReportOpen}>
+          <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                Informe Detallado - {selectedCliente?.nombre} {selectedCliente?.apellido}
+              </DialogTitle>
+            </DialogHeader>
+            {selectedCliente && <InformeCliente cliente={selectedCliente} />}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
