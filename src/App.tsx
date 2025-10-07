@@ -13,6 +13,7 @@ import Ventas from "./pages/Ventas";
 import CuentaCorriente from "./pages/CuentaCorriente";
 import Bancos from "./pages/Bancos";
 import Tarjetas from "./pages/Tarjetas";
+import Comercio from "./pages/Comercio";
 import NotFound from "./pages/NotFound";
 import ListadoClientes from "./pages/listados/ListadoClientes";
 import ListadoProveedores from "./pages/listados/ListadoProveedores";
@@ -44,6 +45,7 @@ const App = () => (
           <Route path="/productos" element={<Productos />} />
           <Route path="/ventas" element={<Ventas />} />
           <Route path="/cuenta-corriente" element={<CuentaCorriente />} />
+          <Route path="/comercio" element={<Comercio />} />
           <Route path="/bancos" element={<Bancos />} />
           <Route path="/tarjetas" element={<Tarjetas />} />
           <Route path="/listados/clientes" element={<ListadoClientes />} />

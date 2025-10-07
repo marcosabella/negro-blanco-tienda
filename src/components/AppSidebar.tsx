@@ -1,4 +1,4 @@
-import { Users, Truck, Package, ShoppingCart, CreditCard, Building2, FileText, ChevronDown, Settings } from "lucide-react"
+import { Users, Truck, Package, ShoppingCart, CreditCard, Building2, FileText, ChevronDown, Settings, Store } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 
@@ -27,6 +27,7 @@ const menuItems = [
 ]
 
 const configuracionItems = [
+  { title: "Mi Comercio", url: "/comercio", icon: Store },
   { title: "Bancos", url: "/bancos", icon: Building2 },
   { title: "Tarjetas", url: "/tarjetas", icon: CreditCard },
 ]
@@ -48,7 +49,7 @@ export function AppSidebar() {
   const [listadosOpen, setListadosOpen] = useState(false)
 
   const isActive = (path: string) => currentPath === path
-  const isConfiguracionActive = currentPath === '/bancos' || currentPath === '/tarjetas'
+  const isConfiguracionActive = currentPath === '/comercio' || currentPath === '/bancos' || currentPath === '/tarjetas'
   const isListadosActive = currentPath.startsWith('/listados')
 
   return (

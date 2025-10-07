@@ -110,6 +110,57 @@ export type Database = {
         }
         Relationships: []
       }
+      comercio: {
+        Row: {
+          calle: string
+          codigo_postal: string
+          created_at: string
+          cuit: string
+          fecha_inicio_actividad: string
+          id: string
+          ingresos_brutos: string | null
+          localidad: string
+          logo_url: string | null
+          nombre_comercio: string
+          numero: string
+          provincia: string
+          telefono: string | null
+          updated_at: string
+        }
+        Insert: {
+          calle: string
+          codigo_postal: string
+          created_at?: string
+          cuit: string
+          fecha_inicio_actividad: string
+          id?: string
+          ingresos_brutos?: string | null
+          localidad: string
+          logo_url?: string | null
+          nombre_comercio: string
+          numero: string
+          provincia: string
+          telefono?: string | null
+          updated_at?: string
+        }
+        Update: {
+          calle?: string
+          codigo_postal?: string
+          created_at?: string
+          cuit?: string
+          fecha_inicio_actividad?: string
+          id?: string
+          ingresos_brutos?: string | null
+          localidad?: string
+          logo_url?: string | null
+          nombre_comercio?: string
+          numero?: string
+          provincia?: string
+          telefono?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cuenta_corriente: {
         Row: {
           cliente_id: string
