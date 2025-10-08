@@ -122,13 +122,13 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
     const generarNumeroComprobante = async () => {
       // Solo generar automáticamente si es una nueva venta
       if (venta) return;
-
+      
       const tipoComprobante = watchTipoComprobante;
       if (!tipoComprobante) return;
 
       try {
         const puntoVenta = "0001"; // Punto de venta por defecto
-
+        
         // Buscar el último número de comprobante para este tipo y punto de venta
         const { data, error } = await supabase
           .from("ventas")
