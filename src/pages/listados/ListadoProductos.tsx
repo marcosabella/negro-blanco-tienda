@@ -1,14 +1,61 @@
+import { useState, useMemo } from "react";
 import { useProductosReport } from "@/hooks/useProductosReport";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Printer, Package, TrendingUp, AlertCircle, DollarSign } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Printer, Package, TrendingUp, AlertCircle, DollarSign, Search } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
 const ListadoProductos = () => {
   const { productos, stats, isLoading } = useProductosReport();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [stockFilter, setStockFilter] = useState<"todos" | "con-stock" | "sin-stock">("todos");
+  const [sortBy, setSortBy] = useState<"descripcion" | "mas-vendido" | "valor-costo" | "valor-venta">("descripcion");
+
+  // Filtrar y ordenar productos
+  const productosFiltrados = useMemo(() => {
+    let filtered = [...productos];
+
+    // Filtro por descripción
+    if (searchTerm) {
+      filtered = filtered.filter(p => 
+        p.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.cod_producto.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.marca?.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filtro por stock
+    if (stockFilter === "con-stock") {
+      filtered = filtered.filter(p => p.stock > 0);
+    } else if (stockFilter === "sin-stock") {
+      filtered = filtered.filter(p => p.stock === 0);
+    }
+
+    // Ordenamiento
+    switch (sortBy) {
+      case "mas-vendido":
+        filtered.sort((a, b) => b.total_vendido - a.total_vendido);
+        break;
+      case "valor-costo":
+        filtered.sort((a, b) => b.valor_stock_costo - a.valor_stock_costo);
+        break;
+      case "valor-venta":
+        filtered.sort((a, b) => b.valor_stock_venta - a.valor_stock_venta);
+        break;
+      case "descripcion":
+      default:
+        filtered.sort((a, b) => a.descripcion.localeCompare(b.descripcion));
+        break;
+    }
+
+    return filtered;
+  }, [productos, searchTerm, stockFilter, sortBy]);
 
   const handlePrint = () => {
     window.print();
@@ -55,6 +102,63 @@ const ListadoProductos = () => {
             Generado el {format(new Date(), "dd 'de' MMMM 'de' yyyy 'a las' HH:mm", { locale: es })}
           </p>
         </div>
+
+        {/* Filtros y Ordenamiento */}
+        <Card className="print:hidden">
+          <CardHeader>
+            <CardTitle>Filtros y Ordenamiento</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="search">Buscar por descripción, código o marca</Label>
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="search"
+                    placeholder="Buscar..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="stock-filter">Filtrar por stock</Label>
+                <Select value={stockFilter} onValueChange={(value: any) => setStockFilter(value)}>
+                  <SelectTrigger id="stock-filter">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los productos</SelectItem>
+                    <SelectItem value="con-stock">Con stock</SelectItem>
+                    <SelectItem value="sin-stock">Sin stock</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sort-by">Ordenar por</Label>
+                <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                  <SelectTrigger id="sort-by">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="descripcion">Descripción A-Z</SelectItem>
+                    <SelectItem value="mas-vendido">Más vendido</SelectItem>
+                    <SelectItem value="valor-costo">Valor stock (Costo) ↓</SelectItem>
+                    <SelectItem value="valor-venta">Valor stock (Venta) ↓</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Mostrando {productosFiltrados.length} de {productos.length} productos</span>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -144,7 +248,14 @@ const ListadoProductos = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {productos.map((producto) => (
+                  {productosFiltrados.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                        No se encontraron productos con los filtros aplicados
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    productosFiltrados.map((producto) => (
                     <TableRow key={producto.id}>
                       <TableCell className="font-medium">{producto.cod_producto}</TableCell>
                       <TableCell>{producto.descripcion}</TableCell>
@@ -184,7 +295,8 @@ const ListadoProductos = () => {
                         )}
                       </TableCell>
                     </TableRow>
-                  ))}
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>
