@@ -29,7 +29,6 @@ import { useTarjetas } from "@/hooks/useTarjetas"
 import { useTarjetaCuotas } from "@/hooks/useTarjetaCuotas"
 import { useBancos } from "@/hooks/useBancos"
 import { useProductos } from "@/hooks/useProductos"
-import { useAfipConfig } from "@/hooks/useAfipConfig"
 import { Venta, VentaItem, TIPOS_PAGO, TIPOS_COMPROBANTE } from "@/types/venta"
 import { useToast } from "@/hooks/use-toast"
 import { Trash2, Plus, Search } from "lucide-react"
@@ -80,7 +79,6 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
   const { tarjetas } = useTarjetas()
   const { bancos } = useBancos()
   const { productos } = useProductos()
-  const { config: afipConfig } = useAfipConfig()
   const [selectedTarjetaId, setSelectedTarjetaId] = useState<string>("")
   const { tarjetaCuotas } = useTarjetaCuotas(selectedTarjetaId)
   
@@ -124,15 +122,13 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
     const generarNumeroComprobante = async () => {
       // Solo generar automáticamente si es una nueva venta
       if (venta) return;
-
+      
       const tipoComprobante = watchTipoComprobante;
       if (!tipoComprobante) return;
 
       try {
-        // Obtener el punto de venta desde la configuración de AFIP
-        const puntoVentaNumero = afipConfig?.punto_venta || 1;
-        const puntoVenta = String(puntoVentaNumero).padStart(4, "0");
-
+        const puntoVenta = "0001"; // Punto de venta por defecto
+        
         // Buscar el último número de comprobante para este tipo y punto de venta
         const { data, error } = await supabase
           .from("ventas")
@@ -161,7 +157,7 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
     };
 
     generarNumeroComprobante();
-  }, [watchTipoComprobante, venta, form, afipConfig]);
+  }, [watchTipoComprobante, venta, form]);
 
   useEffect(() => {
     if (venta) {
