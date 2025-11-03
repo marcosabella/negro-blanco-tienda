@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      afip_config: {
+        Row: {
+          activo: boolean | null
+          ambiente: string | null
+          certificado_crt: string | null
+          certificado_key: string | null
+          created_at: string | null
+          cuit_emisor: string | null
+          id: string
+          nombre_certificado_crt: string | null
+          nombre_certificado_key: string | null
+          punto_venta: number
+          updated_at: string | null
+        }
+        Insert: {
+          activo?: boolean | null
+          ambiente?: string | null
+          certificado_crt?: string | null
+          certificado_key?: string | null
+          created_at?: string | null
+          cuit_emisor?: string | null
+          id?: string
+          nombre_certificado_crt?: string | null
+          nombre_certificado_key?: string | null
+          punto_venta: number
+          updated_at?: string | null
+        }
+        Update: {
+          activo?: boolean | null
+          ambiente?: string | null
+          certificado_crt?: string | null
+          certificado_key?: string | null
+          created_at?: string | null
+          cuit_emisor?: string | null
+          id?: string
+          nombre_certificado_crt?: string | null
+          nombre_certificado_key?: string | null
+          punto_venta?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       bancos: {
         Row: {
           activo: boolean
