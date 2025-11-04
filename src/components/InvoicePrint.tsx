@@ -286,24 +286,6 @@ export const InvoicePrint = ({ venta, comercio, cliente }: InvoicePrintProps) =>
         <div className="info-grid">
           <div>
             <div className="info-line">
-              <strong>Periodo Facturado Desde:</strong> {format(new Date(venta.fecha_venta), 'dd/MM/yyyy')}
-            </div>
-            <div className="info-line">
-              <strong>Hasta:</strong> {format(new Date(venta.fecha_venta), 'dd/MM/yyyy')}
-            </div>
-          </div>
-          <div>
-            <div className="info-line">
-              <strong>Fecha de Vto. para el pago:</strong> {format(new Date(venta.fecha_venta), 'dd/MM/yyyy')}
-            </div>
-          </div>
-        </div>
-
-        <div className="section-divider"></div>
-
-        <div className="info-grid">
-          <div>
-            <div className="info-line">
               <strong>CUIL/CUIT:</strong> {cliente?.cuit || ''}
             </div>
             <div className="info-line">
