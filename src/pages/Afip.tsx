@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAfipConfig, useCreateAfipConfig, useUpdateAfipConfig } from '@/hooks/useAfipConfig';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,8 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { AMBIENTES_AFIP } from '@/types/afip';
-import { FileKey, Save, RefreshCw } from 'lucide-react';
+import { FileKey, Save, RefreshCw, Upload, CheckCircle, Folder } from 'lucide-react';
 
 const Afip = () => {
   const { data: config, isLoading } = useAfipConfig();
@@ -23,9 +25,88 @@ const Afip = () => {
   const [nombreCertificadoCrt, setNombreCertificadoCrt] = useState(config?.nombre_certificado_crt || '');
   const [nombreCertificadoKey, setNombreCertificadoKey] = useState(config?.nombre_certificado_key || '');
   const [activo, setActivo] = useState(config?.activo ?? true);
+  const [crtError, setCrtError] = useState('');
+  const [keyError, setKeyError] = useState('');
+
+  const inputCrtRef = useRef<HTMLInputElement>(null);
+  const inputKeyRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (config) {
+      setPuntoVenta(config.punto_venta);
+      setCuitEmisor(config.cuit_emisor);
+      setAmbiente(config.ambiente);
+      setCertificadoCrt(config.certificado_crt || '');
+      setCertificadoKey(config.certificado_key || '');
+      setNombreCertificadoCrt(config.nombre_certificado_crt || '');
+      setNombreCertificadoKey(config.nombre_certificado_key || '');
+      setActivo(config.activo ?? true);
+    }
+  }, [config]);
+
+  const handleCrtFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    setCrtError('');
+
+    if (!file) return;
+
+    if (!file.name.endsWith('.crt')) {
+      setCrtError('El archivo debe tener extensión .crt');
+      return;
+    }
+
+    if (file.size > 100 * 1024) {
+      setCrtError('El archivo no puede exceder 100 KB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      setCertificadoCrt(content);
+      setNombreCertificadoCrt(file.name);
+    };
+    reader.onerror = () => {
+      setCrtError('Error al leer el archivo');
+    };
+    reader.readAsText(file);
+  };
+
+  const handleKeyFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    setKeyError('');
+
+    if (!file) return;
+
+    if (!file.name.endsWith('.key')) {
+      setKeyError('El archivo debe tener extensión .key');
+      return;
+    }
+
+    if (file.size > 100 * 1024) {
+      setKeyError('El archivo no puede exceder 100 KB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      setCertificadoKey(content);
+      setNombreCertificadoKey(file.name);
+    };
+    reader.onerror = () => {
+      setKeyError('Error al leer el archivo');
+    };
+    reader.readAsText(file);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!certificadoCrt || !certificadoKey) {
+      alert('Debe cargar ambos certificados (CRT y KEY)');
+      return;
+    }
 
     const configData = {
       punto_venta: puntoVenta,
@@ -88,6 +169,7 @@ const Afip = () => {
                     onChange={(e) => setPuntoVenta(parseInt(e.target.value))}
                     required
                   />
+                  <p className="text-xs text-muted-foreground">Número asignado por AFIP (1-9999)</p>
                 </div>
 
                 <div className="space-y-2">
@@ -100,11 +182,12 @@ const Afip = () => {
                     onChange={(e) => setCuitEmisor(e.target.value)}
                     required
                   />
+                  <p className="text-xs text-muted-foreground">Formato: XX-XXXXXXXX-X</p>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="ambiente">Ambiente *</Label>
-                  <Select value={ambiente} onValueChange={(value: 'homologacion' | 'produccion') => setAmbiente(value)}>
+                  <Select value={ambiente} onValueChange={(value: any) => setAmbiente(value)}>
                     <SelectTrigger id="ambiente">
                       <SelectValue />
                     </SelectTrigger>
@@ -116,6 +199,7 @@ const Afip = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">Homologación para pruebas, Producción para facturas reales</p>
                 </div>
 
                 <div className="space-y-2 flex items-center justify-between">
@@ -128,60 +212,121 @@ const Afip = () => {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Certificados</h3>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="nombreCertificadoCrt">Nombre Certificado CRT</Label>
-                  <Input
-                    id="nombreCertificadoCrt"
-                    type="text"
-                    placeholder="certificado.crt"
-                    value={nombreCertificadoCrt}
-                    onChange={(e) => setNombreCertificadoCrt(e.target.value)}
-                  />
-                </div>
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-semibold mb-4">Certificados Digitales</h3>
 
-                <div className="space-y-2">
-                  <Label htmlFor="certificadoCrt">Contenido Certificado CRT</Label>
-                  <Textarea
-                    id="certificadoCrt"
-                    placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"
-                    value={certificadoCrt}
-                    onChange={(e) => setCertificadoCrt(e.target.value)}
-                    rows={5}
-                    className="font-mono text-sm"
-                  />
-                </div>
+                <Alert className="mb-4">
+                  <FileKey className="h-4 w-4" />
+                  <AlertDescription>
+                    Cargue los archivos de certificado (.crt) y clave privada (.key) obtenidos de AFIP
+                  </AlertDescription>
+                </Alert>
 
-                <div className="space-y-2">
-                  <Label htmlFor="nombreCertificadoKey">Nombre Certificado KEY</Label>
-                  <Input
-                    id="nombreCertificadoKey"
-                    type="text"
-                    placeholder="private.key"
-                    value={nombreCertificadoKey}
-                    onChange={(e) => setNombreCertificadoKey(e.target.value)}
-                  />
-                </div>
+                <div className="grid gap-6">
+                  <div className="space-y-3 p-4 border-2 border-dashed rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label htmlFor="crtFile" className="text-base font-semibold">Certificado Digital (.crt)</Label>
+                        {nombreCertificadoCrt && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              {nombreCertificadoCrt}
+                            </Badge>
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="certificadoKey">Contenido Certificado KEY</Label>
-                  <Textarea
-                    id="certificadoKey"
-                    placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"
-                    value={certificadoKey}
-                    onChange={(e) => setCertificadoKey(e.target.value)}
-                    rows={5}
-                    className="font-mono text-sm"
-                  />
+                    <input
+                      ref={inputCrtRef}
+                      id="crtFile"
+                      type="file"
+                      accept=".crt"
+                      onChange={handleCrtFileUpload}
+                      className="hidden"
+                    />
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => inputCrtRef.current?.click()}
+                    >
+                      <Folder className="h-4 w-4 mr-2" />
+                      Buscar archivo .crt
+                    </Button>
+
+                    {crtError && (
+                      <p className="text-sm text-destructive">{crtError}</p>
+                    )}
+
+                    {certificadoCrt && (
+                      <Textarea
+                        value={certificadoCrt}
+                        onChange={(e) => setCertificadoCrt(e.target.value)}
+                        rows={4}
+                        className="font-mono text-xs"
+                        placeholder="Contenido del certificado..."
+                      />
+                    )}
+                  </div>
+
+                  <div className="space-y-3 p-4 border-2 border-dashed rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label htmlFor="keyFile" className="text-base font-semibold">Clave Privada (.key)</Label>
+                        {nombreCertificadoKey && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              {nombreCertificadoKey}
+                            </Badge>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <input
+                      ref={inputKeyRef}
+                      id="keyFile"
+                      type="file"
+                      accept=".key"
+                      onChange={handleKeyFileUpload}
+                      className="hidden"
+                    />
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => inputKeyRef.current?.click()}
+                    >
+                      <Folder className="h-4 w-4 mr-2" />
+                      Buscar archivo .key
+                    </Button>
+
+                    {keyError && (
+                      <p className="text-sm text-destructive">{keyError}</p>
+                    )}
+
+                    {certificadoKey && (
+                      <Textarea
+                        value={certificadoKey}
+                        onChange={(e) => setCertificadoKey(e.target.value)}
+                        rows={4}
+                        className="font-mono text-xs"
+                        placeholder="Contenido de la clave..."
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div className="flex gap-2">
-                <Button 
-                  type="submit" 
-                  disabled={createConfig.isPending || updateConfig.isPending}
+                <Button
+                  type="submit"
+                  disabled={createConfig.isPending || updateConfig.isPending || !certificadoCrt || !certificadoKey}
                 >
                   {createConfig.isPending || updateConfig.isPending ? (
                     <>
