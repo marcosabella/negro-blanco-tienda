@@ -60,40 +60,60 @@ export const InvoicePrint = ({ venta, comercio, cliente }: InvoicePrintProps) =>
               display: flex;
               justify-content: space-between;
               align-items: flex-start;
-              margin-bottom: 20px;
-              border-bottom: 3px double #000;
-              padding-bottom: 10px;
+              margin-bottom: 15px;
+              padding-bottom: 15px;
+              border-bottom: 2px solid #000;
             }
             .company-info {
               flex: 1;
+              padding-right: 20px;
             }
             .company-name {
-              font-size: 16pt;
-              font-weight: bold;
-              margin-bottom: 10px;
+              font-size: 18pt;
+              font-weight: normal;
+              margin-bottom: 15px;
+              line-height: 1.2;
+            }
+            .company-detail {
+              margin: 5px 0;
+              font-size: 10pt;
+            }
+            .company-detail strong {
+              font-weight: 600;
             }
             .invoice-type {
-              width: 80px;
+              width: 70px;
+              height: 70px;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
               text-align: center;
-              border: 2px solid #000;
-              padding: 10px;
+              border: 3px solid #000;
+              padding: 5px;
               margin: 0 20px;
+              flex-shrink: 0;
             }
             .invoice-type-letter {
-              font-size: 32pt;
+              font-size: 36pt;
               font-weight: bold;
-            }
-            .invoice-type-label {
-              font-size: 12pt;
-              font-weight: bold;
+              line-height: 1;
             }
             .invoice-details {
               flex: 1;
-              text-align: left;
+              padding-left: 20px;
+            }
+            .invoice-title {
+              font-size: 18pt;
+              font-weight: normal;
+              margin-bottom: 10px;
             }
             .detail-line {
               margin: 3px 0;
-              font-size: 9pt;
+              font-size: 10pt;
+            }
+            .detail-line strong {
+              font-weight: 600;
             }
             .section-divider {
               border-bottom: 2px solid #000;
@@ -233,28 +253,27 @@ export const InvoicePrint = ({ venta, comercio, cliente }: InvoicePrintProps) =>
         <div className="invoice-header">
           <div className="company-info">
             <div className="company-name">{comercio?.nombre_comercio || 'Nombre Comercio'}</div>
-            <div className="detail-line"><strong>Razón social:</strong> {comercio?.nombre_comercio || ''}</div>
-            <div className="detail-line">
+            <div className="company-detail"><strong>Razón social:</strong> {comercio?.nombre_comercio || ''}</div>
+            <div className="company-detail">
               <strong>Domicilio Comercial:</strong> {comercio?.calle} {comercio?.numero}
             </div>
-            <div className="detail-line">
-              <strong>Condición Frente al IVA:</strong> Responsable Inscripto
+            <div className="company-detail">
+              <strong>Condición Frente al IVA:</strong> Responsable inscripto
             </div>
           </div>
 
           <div className="invoice-type">
             <div className="invoice-type-letter">{getTipoComprobanteLetra(venta.tipo_comprobante)}</div>
-            <div className="invoice-type-label">{getTipoComprobanteNombre(venta.tipo_comprobante)}</div>
           </div>
 
           <div className="invoice-details">
-            <div className="detail-line"><strong>Punto de Venta:</strong> {puntoVenta}</div>
-            <div className="detail-line"><strong>Comp. Nro:</strong> {numeroComp}</div>
+            <div className="invoice-title">Factura</div>
+            <div className="detail-line"><strong>Punto de Venta:</strong> {puntoVenta} <strong style={{ marginLeft: '20px' }}>Comp. Nro:</strong> {numeroComp}</div>
             <div className="detail-line">
               <strong>Fecha de Emisión:</strong> {format(new Date(venta.fecha_venta), 'dd/MM/yyyy')}
             </div>
             <div className="detail-line"><strong>CUIT:</strong> {comercio?.cuit || ''}</div>
-            <div className="detail-line"><strong>Ingresos Brutos:</strong> {comercio?.ingresos_brutos || 'N/A'}</div>
+            <div className="detail-line"><strong>Ingresos Brutos:</strong> {comercio?.ingresos_brutos || ''}</div>
             <div className="detail-line">
               <strong>Fecha de Inicio de Actividades:</strong>{' '}
               {comercio?.fecha_inicio_actividad ? format(new Date(comercio.fecha_inicio_actividad), 'dd/MM/yyyy') : ''}
