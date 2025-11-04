@@ -29,6 +29,7 @@ import { useTarjetas } from "@/hooks/useTarjetas"
 import { useTarjetaCuotas } from "@/hooks/useTarjetaCuotas"
 import { useBancos } from "@/hooks/useBancos"
 import { useProductos } from "@/hooks/useProductos"
+import { useAfipConfig } from "@/hooks/useAfipConfig"
 import { Venta, VentaItem, TIPOS_PAGO, TIPOS_COMPROBANTE } from "@/types/venta"
 import { useToast } from "@/hooks/use-toast"
 import { Trash2, Plus, Search } from "lucide-react"
@@ -79,9 +80,10 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
   const { tarjetas } = useTarjetas()
   const { bancos } = useBancos()
   const { productos } = useProductos()
+  const { data: afipConfig } = useAfipConfig()
   const [selectedTarjetaId, setSelectedTarjetaId] = useState<string>("")
   const { tarjetaCuotas } = useTarjetaCuotas(selectedTarjetaId)
-  
+
   // Estado para items de venta
   const [ventaItems, setVentaItems] = useState<Omit<VentaItem, "id" | "venta_id" | "created_at" | "updated_at">[]>([])
   const [selectedProductoId, setSelectedProductoId] = useState<string>("")
@@ -89,7 +91,7 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
   const [cantidad, setCantidad] = useState<number>(1)
   const [productSearchOpen, setProductSearchOpen] = useState(false)
   const [productSearchTerm, setProductSearchTerm] = useState("")
-  
+
   // Estado para búsqueda de clientes
   const [clienteSearchOpen, setClienteSearchOpen] = useState(false)
   const [clienteSearchTerm, setClienteSearchTerm] = useState("")
@@ -122,13 +124,16 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
     const generarNumeroComprobante = async () => {
       // Solo generar automáticamente si es una nueva venta
       if (venta) return;
-      
+
       const tipoComprobante = watchTipoComprobante;
       if (!tipoComprobante) return;
 
       try {
-        const puntoVenta = "0001"; // Punto de venta por defecto
-        
+        // Usar punto de venta de AFIP o por defecto 0001
+        const puntoVenta = afipConfig?.punto_venta
+          ? String(afipConfig.punto_venta).padStart(4, "0")
+          : "0001";
+
         // Buscar el último número de comprobante para este tipo y punto de venta
         const { data, error } = await supabase
           .from("ventas")
@@ -157,7 +162,7 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
     };
 
     generarNumeroComprobante();
-  }, [watchTipoComprobante, venta, form]);
+  }, [watchTipoComprobante, venta, form, afipConfig]);
 
   useEffect(() => {
     if (venta) {
