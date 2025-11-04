@@ -197,12 +197,17 @@ export const VentasList = () => {
           <DialogHeader>
             <DialogTitle>Imprimir Factura</DialogTitle>
           </DialogHeader>
-          {selectedVenta && (
+          {selectedVenta && clientes && (
             <InvoicePrint 
               venta={selectedVenta} 
               comercio={comercio || null}
-              cliente={clientes?.find(c => c.id === selectedVenta.cliente_id) || null}
+              cliente={clientes.find(c => c.id === selectedVenta.cliente_id) || null}
             />
+          )}
+          {selectedVenta && !clientes && (
+            <div className="p-6 text-center">
+              <p className="text-muted-foreground">Cargando datos...</p>
+            </div>
           )}
         </DialogContent>
       </Dialog>
