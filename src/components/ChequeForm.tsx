@@ -160,13 +160,12 @@ export const ChequeForm = ({ cheque, onSubmit, onCancel }: ChequeFormProps) => {
         </div>
 
         <div>
-          <Label htmlFor="cliente_id">Cliente que Paga</Label>
-          <Select value={clienteId} onValueChange={(value) => setValue('cliente_id', value)}>
+          <Label htmlFor="cliente_id">Cliente que Paga (Opcional)</Label>
+          <Select value={clienteId || undefined} onValueChange={(value) => setValue('cliente_id', value)}>
             <SelectTrigger>
-              <SelectValue placeholder="Seleccione un cliente" />
+              <SelectValue placeholder="Sin cliente asignado" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Ninguno</SelectItem>
               {clientes?.map((cliente) => (
                 <SelectItem key={cliente.id} value={cliente.id}>
                   {cliente.nombre} {cliente.apellido} - {cliente.cuit}
