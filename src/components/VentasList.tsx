@@ -5,24 +5,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Eye, Edit, Trash2, Printer } from "lucide-react";
+import { Plus, Search, Eye, Edit, Trash2 } from "lucide-react";
 import { useVentas } from "@/hooks/useVentas";
-import { useComercio } from "@/hooks/useComercio";
-import { useClientes } from "@/hooks/useClientes";
 import VentaForm from "./VentaForm"
-import { InvoicePrint } from "./InvoicePrint";
 import { Venta, TIPOS_PAGO, TIPOS_COMPROBANTE } from "@/types/venta";
 import { format } from "date-fns";
 
 export const VentasList = () => {
   const { ventas, isLoading, deleteVenta } = useVentas();
-  const { comercio } = useComercio();
-  const { data: clientes } = useClientes();
   const [showForm, setShowForm] = useState(false);
   const [editingVenta, setEditingVenta] = useState<Venta | null>(null);
   const [selectedVenta, setSelectedVenta] = useState<Venta | null>(null);
   const [showDetails, setShowDetails] = useState(false);
-  const [showPrint, setShowPrint] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
   const filteredVentas = ventas.filter(venta =>
@@ -125,17 +119,6 @@ export const VentasList = () => {
                           size="sm"
                           onClick={() => {
                             setSelectedVenta(venta);
-                            setShowPrint(true);
-                          }}
-                          title="Imprimir"
-                        >
-                          <Printer className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedVenta(venta);
                             setShowDetails(true);
                           }}
                         >
@@ -189,26 +172,6 @@ export const VentasList = () => {
               setEditingVenta(null);
             }} 
           />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showPrint} onOpenChange={setShowPrint}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Imprimir Factura</DialogTitle>
-          </DialogHeader>
-          {selectedVenta && clientes && (
-            <InvoicePrint 
-              venta={selectedVenta} 
-              comercio={comercio || null}
-              cliente={clientes.find(c => c.id === selectedVenta.cliente_id) || null}
-            />
-          )}
-          {selectedVenta && !clientes && (
-            <div className="p-6 text-center">
-              <p className="text-muted-foreground">Cargando datos...</p>
-            </div>
-          )}
         </DialogContent>
       </Dialog>
 

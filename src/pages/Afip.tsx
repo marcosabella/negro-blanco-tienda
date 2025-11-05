@@ -103,6 +103,11 @@ const Afip = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!certificadoCrt || !certificadoKey) {
+      alert('Debe cargar ambos certificados (CRT y KEY)');
+      return;
+    }
+
     const configData = {
       punto_venta: puntoVenta,
       cuit_emisor: cuitEmisor,
@@ -321,7 +326,7 @@ const Afip = () => {
               <div className="flex gap-2">
                 <Button
                   type="submit"
-                  disabled={createConfig.isPending || updateConfig.isPending}
+                  disabled={createConfig.isPending || updateConfig.isPending || !certificadoCrt || !certificadoKey}
                 >
                   {createConfig.isPending || updateConfig.isPending ? (
                     <>
