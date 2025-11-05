@@ -16,6 +16,9 @@ import { useTarjetas } from "@/hooks/useTarjetas";
 import { useTarjetaCuotas } from "@/hooks/useTarjetaCuotas";
 import { CONCEPTOS_MOVIMIENTO } from "@/types/cuenta-corriente";
 import { format } from "date-fns";
+import { ChequeDialogForm } from "@/components/ChequeDialogForm";
+import { supabase } from "@/integrations/supabase/client";
+import { toast as sonnerToast } from "sonner";
 
 const movimientoSchema = z.object({
   cliente_id: z.string().min(1, "Cliente es requerido"),
@@ -42,6 +45,8 @@ export const CuentaCorrienteForm = ({ onSuccess }: CuentaCorrienteFormProps) => 
   const [clientSearchTerm, setClientSearchTerm] = useState("");
   const [selectedClient, setSelectedClient] = useState<{ id: string; nombre: string; apellido: string } | null>(null);
   const [selectedTarjetaId, setSelectedTarjetaId] = useState<string>("");
+  const [chequeDialogOpen, setChequeDialogOpen] = useState(false);
+  const [pendingMovimientoData, setPendingMovimientoData] = useState<z.infer<typeof movimientoSchema> | null>(null);
   
   const { tarjetas } = useTarjetas();
   const { tarjetaCuotas } = useTarjetaCuotas(selectedTarjetaId);
@@ -69,6 +74,47 @@ export const CuentaCorrienteForm = ({ onSuccess }: CuentaCorrienteFormProps) => 
   });
 
   const onSubmit = (values: z.infer<typeof movimientoSchema>) => {
+    // Si el concepto es pago con cheque, mostrar diálogo de cheque primero
+    if (values.concepto === 'pago_cheque') {
+      setPendingMovimientoData(values);
+      setChequeDialogOpen(true);
+      return;
+    }
+
+    procesarMovimiento(values);
+  };
+
+  const handleChequeSubmit = async (chequeData: any) => {
+    if (!pendingMovimientoData) return;
+
+    try {
+      // Crear el cheque primero
+      const chequeCompleto = {
+        ...chequeData,
+        cliente_id: pendingMovimientoData.cliente_id,
+        estado: 'en_cartera' as const,
+      };
+
+      const { data: chequeCreado, error: chequeError } = await supabase
+        .from('cheques')
+        .insert([chequeCompleto])
+        .select()
+        .single();
+
+      if (chequeError) throw chequeError;
+
+      setChequeDialogOpen(false);
+      
+      // Procesar el movimiento con referencia al cheque
+      await procesarMovimiento(pendingMovimientoData, chequeCreado.id);
+      
+      setPendingMovimientoData(null);
+    } catch (error) {
+      sonnerToast.error("Error al registrar el cheque");
+    }
+  };
+
+  const procesarMovimiento = async (values: z.infer<typeof movimientoSchema>, chequeId?: string) => {
     const movimientoData: any = {
       cliente_id: values.cliente_id,
       tipo_movimiento: values.tipo_movimiento,
@@ -83,8 +129,28 @@ export const CuentaCorrienteForm = ({ onSuccess }: CuentaCorrienteFormProps) => 
       movimientoData.tarjeta_id = values.tarjeta_id;
       movimientoData.cuotas = values.cuotas || 1;
     }
+
+    // Si hay cheque, agregar referencia
+    if (chequeId) {
+      const { data: movCreado, error } = await supabase
+        .from('cuenta_corriente')
+        .insert([movimientoData])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Actualizar el cheque con el cuenta_corriente_id
+      await supabase
+        .from('cheques')
+        .update({ cuenta_corriente_id: movCreado.id })
+        .eq('id', chequeId);
+
+      sonnerToast.success("Movimiento y cheque registrados exitosamente");
+    } else {
+      createMovimiento(movimientoData);
+    }
     
-    createMovimiento(movimientoData);
     onSuccess();
   };
 
@@ -248,6 +314,7 @@ export const CuentaCorrienteForm = ({ onSuccess }: CuentaCorrienteFormProps) => 
                           </SelectItem>
                         ))}
                         <SelectItem value="pago_tarjeta">Pago con Tarjeta</SelectItem>
+                        <SelectItem value="pago_cheque">Pago con Cheque</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -350,6 +417,14 @@ export const CuentaCorrienteForm = ({ onSuccess }: CuentaCorrienteFormProps) => 
             </Button>
           </form>
         </Form>
+
+        <ChequeDialogForm
+          open={chequeDialogOpen}
+          onOpenChange={setChequeDialogOpen}
+          onSubmit={handleChequeSubmit}
+          monto={form.watch('monto')}
+          clienteId={form.watch('cliente_id')}
+        />
       </CardContent>
     </Card>
   );

@@ -32,6 +32,8 @@ import { useProductos } from "@/hooks/useProductos"
 import { Venta, VentaItem, TIPOS_PAGO, TIPOS_COMPROBANTE } from "@/types/venta"
 import { useToast } from "@/hooks/use-toast"
 import { Trash2, Plus, Search } from "lucide-react"
+import { ChequeDialogForm } from "@/components/ChequeDialogForm"
+import { useCheques } from "@/hooks/useCheques"
 
 const ventaSchema = z.object({
   numero_comprobante: z.string().min(1, "Número de comprobante requerido"),
@@ -79,8 +81,11 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
   const { tarjetas } = useTarjetas()
   const { bancos } = useBancos()
   const { productos } = useProductos()
+  const { createCheque } = useCheques()
   const [selectedTarjetaId, setSelectedTarjetaId] = useState<string>("")
   const { tarjetaCuotas } = useTarjetaCuotas(selectedTarjetaId)
+  const [chequeDialogOpen, setChequeDialogOpen] = useState(false)
+  const [pendingVentaData, setPendingVentaData] = useState<VentaFormData | null>(null)
   
   // Estado para items de venta
   const [ventaItems, setVentaItems] = useState<Omit<VentaItem, "id" | "venta_id" | "created_at" | "updated_at">[]>([])
@@ -311,6 +316,52 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
       return
     }
 
+    // Si el tipo de pago es cheque, mostrar diálogo de cheque primero
+    if (data.tipo_pago === 'cheque') {
+      setPendingVentaData(data)
+      setChequeDialogOpen(true)
+      return
+    }
+
+    await procesarVenta(data)
+  }
+
+  const handleChequeSubmit = async (chequeData: any) => {
+    if (!pendingVentaData) return
+
+    try {
+      // Crear el cheque primero
+      const chequeCompleto = {
+        ...chequeData,
+        cliente_id: pendingVentaData.cliente_id,
+        estado: 'en_cartera' as const,
+      }
+
+      // Usar supabase directamente para obtener el ID del cheque creado
+      const { data: chequeCreado, error: chequeError } = await supabase
+        .from('cheques')
+        .insert([chequeCompleto])
+        .select()
+        .single()
+
+      if (chequeError) throw chequeError
+
+      setChequeDialogOpen(false)
+      
+      // Procesar la venta con referencia al cheque
+      await procesarVenta(pendingVentaData, chequeCreado.id)
+      
+      setPendingVentaData(null)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Error al registrar el cheque.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const procesarVenta = async (data: VentaFormData, chequeId?: string) => {
     try {
       const ventaData: Omit<Venta, "id" | "created_at" | "updated_at"> = {
         numero_comprobante: data.numero_comprobante,
@@ -340,10 +391,49 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
           description: "La venta se ha actualizado correctamente.",
         })
       } else {
-        await createVenta({
-          venta: ventaData,
-          items: ventaItems
-        })
+        // Crear la venta con referencia al cheque si existe
+        const { data: ventaCreada, error: ventaError } = await supabase
+          .from('ventas')
+          .insert([ventaData])
+          .select()
+          .single()
+
+        if (ventaError) throw ventaError
+
+        // Insertar items de venta
+        const itemsConVentaId = ventaItems.map(item => ({
+          ...item,
+          venta_id: ventaCreada.id
+        }))
+
+        const { error: itemsError } = await supabase
+          .from('venta_items')
+          .insert(itemsConVentaId)
+
+        if (itemsError) throw itemsError
+
+        // Si hay cheque, actualizarlo con la venta_id
+        if (chequeId) {
+          await supabase
+            .from('cheques')
+            .update({ venta_id: ventaCreada.id })
+            .eq('id', chequeId)
+        }
+
+        // Si es cuenta corriente, crear el movimiento
+        if (data.tipo_pago === 'cta_cte' && data.cliente_id) {
+          await supabase
+            .from('cuenta_corriente')
+            .insert([{
+              cliente_id: data.cliente_id,
+              tipo_movimiento: 'debito',
+              monto: data.total,
+              concepto: 'venta_credito',
+              venta_id: ventaCreada.id,
+              fecha_movimiento: new Date(data.fecha_venta).toISOString(),
+            }])
+        }
+
         toast({
           title: "Venta creada",
           description: "La venta se ha creado correctamente.",
@@ -848,6 +938,14 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
             </div>
           </form>
         </Form>
+        
+        <ChequeDialogForm
+          open={chequeDialogOpen}
+          onOpenChange={setChequeDialogOpen}
+          onSubmit={handleChequeSubmit}
+          monto={form.getValues('total')}
+          clienteId={form.getValues('cliente_id')}
+        />
       </CardContent>
     </Card>
   )
