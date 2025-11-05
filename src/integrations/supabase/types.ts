@@ -95,6 +95,82 @@ export type Database = {
         }
         Relationships: []
       }
+      cheques: {
+        Row: {
+          banco_emisor: string
+          cliente_id: string | null
+          created_at: string
+          cuenta_corriente_id: string | null
+          emisor_cuit: string | null
+          emisor_nombre: string
+          estado: Database["public"]["Enums"]["estado_cheque"]
+          fecha_emision: string
+          fecha_vencimiento: string
+          id: string
+          monto: number
+          numero_cheque: string
+          observaciones: string | null
+          updated_at: string
+          venta_id: string | null
+        }
+        Insert: {
+          banco_emisor: string
+          cliente_id?: string | null
+          created_at?: string
+          cuenta_corriente_id?: string | null
+          emisor_cuit?: string | null
+          emisor_nombre: string
+          estado?: Database["public"]["Enums"]["estado_cheque"]
+          fecha_emision: string
+          fecha_vencimiento: string
+          id?: string
+          monto?: number
+          numero_cheque: string
+          observaciones?: string | null
+          updated_at?: string
+          venta_id?: string | null
+        }
+        Update: {
+          banco_emisor?: string
+          cliente_id?: string | null
+          created_at?: string
+          cuenta_corriente_id?: string | null
+          emisor_cuit?: string | null
+          emisor_nombre?: string
+          estado?: Database["public"]["Enums"]["estado_cheque"]
+          fecha_emision?: string
+          fecha_vencimiento?: string
+          id?: string
+          monto?: number
+          numero_cheque?: string
+          observaciones?: string | null
+          updated_at?: string
+          venta_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_cheques_cliente"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_cheques_cuenta_corriente"
+            columns: ["cuenta_corriente_id"]
+            isOneToOne: false
+            referencedRelation: "cuenta_corriente"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_cheques_venta"
+            columns: ["venta_id"]
+            isOneToOne: false
+            referencedRelation: "ventas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clientes: {
         Row: {
           apellido: string
@@ -717,6 +793,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      estado_cheque: "en_cartera" | "depositado" | "rechazado" | "endosado"
       tipo_comprobante:
         | "factura_a"
         | "factura_b"
@@ -868,6 +945,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      estado_cheque: ["en_cartera", "depositado", "rechazado", "endosado"],
       tipo_comprobante: [
         "factura_a",
         "factura_b",

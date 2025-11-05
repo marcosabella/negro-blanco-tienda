@@ -1,4 +1,4 @@
-import { Users, Truck, Package, ShoppingCart, CreditCard, Building2, FileText, ChevronDown, Settings, Store, FileKey } from "lucide-react"
+import { Users, Truck, Package, ShoppingCart, CreditCard, Building2, FileText, ChevronDown, Settings, Store, FileKey, Receipt } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 
@@ -24,6 +24,7 @@ const menuItems = [
   { title: "Productos", url: "/productos", icon: Package },
   { title: "Ventas", url: "/ventas", icon: ShoppingCart },
   { title: "Cuenta Corriente", url: "/cuenta-corriente", icon: CreditCard },
+  { title: "Cartera de Cheques", url: "/cheques", icon: Receipt },
 ]
 
 const configuracionItems = [

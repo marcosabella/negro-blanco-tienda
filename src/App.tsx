@@ -15,6 +15,7 @@ import Bancos from "./pages/Bancos";
 import Tarjetas from "./pages/Tarjetas";
 import Comercio from "./pages/Comercio";
 import Afip from "./pages/Afip";
+import Cheques from "./pages/Cheques";
 import NotFound from "./pages/NotFound";
 import ListadoClientes from "./pages/listados/ListadoClientes";
 import ListadoProveedores from "./pages/listados/ListadoProveedores";
@@ -50,6 +51,7 @@ const App = () => (
           <Route path="/bancos" element={<Bancos />} />
           <Route path="/tarjetas" element={<Tarjetas />} />
           <Route path="/afip" element={<Afip />} />
+          <Route path="/cheques" element={<Cheques />} />
           <Route path="/listados/clientes" element={<ListadoClientes />} />
           <Route path="/listados/proveedores" element={<ListadoProveedores />} />
           <Route path="/listados/productos" element={<ListadoProductos />} />
