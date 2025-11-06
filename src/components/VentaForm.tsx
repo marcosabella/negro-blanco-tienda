@@ -25,20 +25,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { supabase } from "@/integrations/supabase/client"
 import { useVentas } from "@/hooks/useVentas"
 import { useClientes } from "@/hooks/useClientes"
-import { useTarjetas } from "@/hooks/useTarjetas"
-import { useTarjetaCuotas } from "@/hooks/useTarjetaCuotas"
-import { useBancos } from "@/hooks/useBancos"
 import { useProductos } from "@/hooks/useProductos"
-import { Venta, VentaItem, TIPOS_PAGO, TIPOS_COMPROBANTE } from "@/types/venta"
+import { Venta, VentaItem, PagoVenta, TIPOS_COMPROBANTE } from "@/types/venta"
 import { useToast } from "@/hooks/use-toast"
 import { Trash2, Plus, Search } from "lucide-react"
-import { ChequeDialogForm } from "@/components/ChequeDialogForm"
-import { useCheques } from "@/hooks/useCheques"
+import { PagosVentaManager } from "@/components/PagosVentaManager"
 
 const ventaSchema = z.object({
   numero_comprobante: z.string().min(1, "Número de comprobante requerido"),
   fecha_venta: z.string().min(1, "Fecha requerida"),
-  tipo_pago: z.enum(["contado", "transferencia", "tarjeta", "cheque", "cta_cte"]),
   tipo_comprobante: z.enum([
     "factura_a", "factura_b", "factura_c", "nota_credito_a", "nota_credito_b", 
     "nota_credito_c", "nota_debito_a", "nota_debito_b", "nota_debito_c", 
@@ -50,21 +45,6 @@ const ventaSchema = z.object({
   total_iva: z.number().min(0, "IVA debe ser mayor o igual a 0"),
   total: z.number().min(0, "Total debe ser mayor a 0"),
   observaciones: z.string().optional(),
-  banco_id: z.string().optional(),
-  tarjeta_id: z.string().optional(),
-  cuotas: z.number().optional(),
-  recargo_cuotas: z.number().optional(),
-}).refine((data) => {
-  if (data.tipo_pago === "transferencia" && !data.banco_id) {
-    return false;
-  }
-  if (data.tipo_pago === "tarjeta" && !data.tarjeta_id) {
-    return false;
-  }
-  return true;
-}, {
-  message: "Campos requeridos según el tipo de pago",
-  path: ["tipo_pago"]
 });
 
 type VentaFormData = z.infer<typeof ventaSchema>;
@@ -78,14 +58,7 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
   const { toast } = useToast()
   const { createVenta, updateVenta } = useVentas()
   const { data: clientes = [] } = useClientes()
-  const { tarjetas } = useTarjetas()
-  const { bancos } = useBancos()
   const { productos } = useProductos()
-  const { createCheque } = useCheques()
-  const [selectedTarjetaId, setSelectedTarjetaId] = useState<string>("")
-  const { tarjetaCuotas } = useTarjetaCuotas(selectedTarjetaId)
-  const [chequeDialogOpen, setChequeDialogOpen] = useState(false)
-  const [pendingVentaData, setPendingVentaData] = useState<VentaFormData | null>(null)
   
   // Estado para items de venta
   const [ventaItems, setVentaItems] = useState<Omit<VentaItem, "id" | "venta_id" | "created_at" | "updated_at">[]>([])
@@ -99,42 +72,37 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
   const [clienteSearchOpen, setClienteSearchOpen] = useState(false)
   const [clienteSearchTerm, setClienteSearchTerm] = useState("")
   const [selectedCliente, setSelectedCliente] = useState<{ id: string; nombre: string; apellido: string; cuit: string } | null>(null)
+  
+  // Estado para pagos
+  const [pagosVenta, setPagosVenta] = useState<Omit<PagoVenta, "id" | "venta_id" | "created_at" | "updated_at">[]>([])
 
   const form = useForm<VentaFormData>({
     resolver: zodResolver(ventaSchema),
     defaultValues: {
       numero_comprobante: "",
       fecha_venta: new Date().toISOString().split('T')[0],
-      tipo_pago: "contado",
       tipo_comprobante: "ticket_fiscal",
       cliente_nombre: "Consumidor Final",
       subtotal: 0,
       total_iva: 0,
       total: 0,
       observaciones: "",
-      cuotas: 1,
-      recargo_cuotas: 0,
     },
   })
 
-  const watchTipoPago = form.watch("tipo_pago")
-  const watchTarjetaId = form.watch("tarjeta_id")
-  const watchCuotas = form.watch("cuotas")
   const watchTipoComprobante = form.watch("tipo_comprobante")
 
   // Generar número de comprobante automático cuando cambia el tipo
   useEffect(() => {
     const generarNumeroComprobante = async () => {
-      // Solo generar automáticamente si es una nueva venta
       if (venta) return;
       
       const tipoComprobante = watchTipoComprobante;
       if (!tipoComprobante) return;
 
       try {
-        const puntoVenta = "0001"; // Punto de venta por defecto
+        const puntoVenta = "0001";
         
-        // Buscar el último número de comprobante para este tipo y punto de venta
         const { data, error } = await supabase
           .from("ventas")
           .select("numero_comprobante")
@@ -147,7 +115,6 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
 
         let nuevoNumero = "00000001";
         if (data && data.length > 0) {
-          // Extraer el número después del guión y sumar 1
           const partes = data[0].numero_comprobante.split("-");
           if (partes.length === 2) {
             const ultimoNumero = parseInt(partes[1]) || 0;
@@ -169,7 +136,6 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
       form.reset({
         numero_comprobante: venta.numero_comprobante,
         fecha_venta: new Date(venta.fecha_venta).toISOString().split('T')[0],
-        tipo_pago: venta.tipo_pago,
         tipo_comprobante: venta.tipo_comprobante,
         cliente_id: venta.cliente_id || undefined,
         cliente_nombre: venta.cliente_nombre,
@@ -177,15 +143,8 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
         total_iva: Number(venta.total_iva),
         total: Number(venta.total),
         observaciones: venta.observaciones || "",
-        banco_id: venta.banco_id || undefined,
-        tarjeta_id: venta.tarjeta_id || undefined,
-        cuotas: venta.cuotas || 1,
-        recargo_cuotas: Number(venta.recargo_cuotas) || 0,
       })
-      if (venta.tarjeta_id) {
-        setSelectedTarjetaId(venta.tarjeta_id)
-      }
-      // Cargar items existentes
+      
       if (venta.venta_items) {
         setVentaItems(venta.venta_items.map(item => ({
           producto_id: item.producto_id,
@@ -197,59 +156,31 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
           total: item.total,
         })))
       }
+      
+      if (venta.pagos_venta) {
+        setPagosVenta(venta.pagos_venta.map(pago => ({
+          tipo_pago: pago.tipo_pago,
+          monto: pago.monto,
+          banco_id: pago.banco_id,
+          tarjeta_id: pago.tarjeta_id,
+          cuotas: pago.cuotas,
+          recargo_cuotas: pago.recargo_cuotas,
+          cheque_id: pago.cheque_id,
+        })))
+      }
     }
   }, [venta, form])
-
-  // Limpiar campos cuando cambia el tipo de pago
-  useEffect(() => {
-    if (watchTipoPago !== "transferencia") {
-      form.setValue("banco_id", undefined)
-    }
-    if (watchTipoPago !== "tarjeta") {
-      form.setValue("tarjeta_id", undefined)
-      form.setValue("cuotas", 1)
-      form.setValue("recargo_cuotas", 0)
-      setSelectedTarjetaId("")
-    }
-  }, [watchTipoPago, form])
-
-  // Actualizar tarjeta seleccionada
-  useEffect(() => {
-    if (watchTarjetaId) {
-      setSelectedTarjetaId(watchTarjetaId)
-    }
-  }, [watchTarjetaId])
 
   // Calcular totales cuando cambian los items
   useEffect(() => {
     const subtotal = ventaItems.reduce((sum, item) => sum + item.subtotal, 0)
     const totalIva = ventaItems.reduce((sum, item) => sum + item.monto_iva, 0)
-    const recargoCuotas = form.getValues("recargo_cuotas") || 0
-    const total = subtotal + totalIva + recargoCuotas
+    const total = subtotal + totalIva
     
     form.setValue("subtotal", subtotal)
     form.setValue("total_iva", totalIva)
     form.setValue("total", total)
   }, [ventaItems, form])
-
-  // Calcular recargo cuando cambian las cuotas
-  useEffect(() => {
-    if (watchTarjetaId && watchCuotas && tarjetaCuotas.length > 0) {
-      const cuotaConfig = tarjetaCuotas.find(c => c.cantidad_cuotas === watchCuotas)
-      if (cuotaConfig) {
-        const subtotal = form.getValues("subtotal")
-        const recargo = (subtotal * cuotaConfig.porcentaje_recargo) / 100
-        form.setValue("recargo_cuotas", recargo)
-        
-        // Recalcular total
-        const totalIva = form.getValues("total_iva")
-        const nuevoTotal = subtotal + totalIva + recargo
-        form.setValue("total", nuevoTotal)
-      }
-    } else {
-      form.setValue("recargo_cuotas", 0)
-    }
-  }, [watchTarjetaId, watchCuotas, tarjetaCuotas, form])
 
   // Filtrar productos por término de búsqueda
   const filteredProductos = productos.filter(producto =>
@@ -316,127 +247,57 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
       return
     }
 
-    // Si el tipo de pago es cheque, mostrar diálogo de cheque primero
-    if (data.tipo_pago === 'cheque') {
-      setPendingVentaData(data)
-      setChequeDialogOpen(true)
+    if (pagosVenta.length === 0) {
+      toast({
+        title: "Error",
+        description: "Debe agregar al menos un método de pago",
+        variant: "destructive",
+      })
       return
     }
 
-    await procesarVenta(data)
-  }
-
-  const handleChequeSubmit = async (chequeData: any) => {
-    if (!pendingVentaData) return
-
-    try {
-      // Crear el cheque primero
-      const chequeCompleto = {
-        ...chequeData,
-        cliente_id: pendingVentaData.cliente_id,
-        estado: 'en_cartera' as const,
-      }
-
-      // Usar supabase directamente para obtener el ID del cheque creado
-      const { data: chequeCreado, error: chequeError } = await supabase
-        .from('cheques')
-        .insert([chequeCompleto])
-        .select()
-        .single()
-
-      if (chequeError) throw chequeError
-
-      setChequeDialogOpen(false)
-      
-      // Procesar la venta con referencia al cheque
-      await procesarVenta(pendingVentaData, chequeCreado.id)
-      
-      setPendingVentaData(null)
-    } catch (error) {
+    const totalPagos = pagosVenta.reduce((sum, p) => sum + p.monto, 0)
+    if (Math.abs(totalPagos - data.total) > 0.01) {
       toast({
         title: "Error",
-        description: "Error al registrar el cheque.",
+        description: `El total de pagos ($${totalPagos.toFixed(2)}) debe coincidir con el total de la venta ($${data.total.toFixed(2)})`,
         variant: "destructive",
       })
+      return
     }
-  }
 
-  const procesarVenta = async (data: VentaFormData, chequeId?: string) => {
     try {
       const ventaData: Omit<Venta, "id" | "created_at" | "updated_at"> = {
         numero_comprobante: data.numero_comprobante,
         fecha_venta: new Date(data.fecha_venta).toISOString(),
-        tipo_pago: data.tipo_pago,
+        tipo_pago: pagosVenta[0].tipo_pago, // Por compatibilidad, usar el primer método de pago
         tipo_comprobante: data.tipo_comprobante,
         cliente_nombre: data.cliente_nombre,
         subtotal: data.subtotal,
         total_iva: data.total_iva,
         total: data.total,
         cliente_id: data.cliente_id || undefined,
-        banco_id: data.banco_id || undefined,
-        tarjeta_id: data.tarjeta_id || undefined,
-        cuotas: data.cuotas || 1,
-        recargo_cuotas: data.recargo_cuotas || 0,
         observaciones: data.observaciones,
       }
 
       if (venta?.id) {
+        // Eliminar pagos anteriores
+        await supabase
+          .from("pagos_venta")
+          .delete()
+          .eq("venta_id", venta.id)
+
         await updateVenta({
           ventaId: venta.id,
           venta: ventaData,
-          items: ventaItems
-        })
-        toast({
-          title: "Venta actualizada",
-          description: "La venta se ha actualizado correctamente.",
+          items: ventaItems,
+          pagos: pagosVenta
         })
       } else {
-        // Crear la venta con referencia al cheque si existe
-        const { data: ventaCreada, error: ventaError } = await supabase
-          .from('ventas')
-          .insert([ventaData])
-          .select()
-          .single()
-
-        if (ventaError) throw ventaError
-
-        // Insertar items de venta
-        const itemsConVentaId = ventaItems.map(item => ({
-          ...item,
-          venta_id: ventaCreada.id
-        }))
-
-        const { error: itemsError } = await supabase
-          .from('venta_items')
-          .insert(itemsConVentaId)
-
-        if (itemsError) throw itemsError
-
-        // Si hay cheque, actualizarlo con la venta_id
-        if (chequeId) {
-          await supabase
-            .from('cheques')
-            .update({ venta_id: ventaCreada.id })
-            .eq('id', chequeId)
-        }
-
-        // Si es cuenta corriente, crear el movimiento
-        if (data.tipo_pago === 'cta_cte' && data.cliente_id) {
-          await supabase
-            .from('cuenta_corriente')
-            .insert([{
-              cliente_id: data.cliente_id,
-              tipo_movimiento: 'debito',
-              monto: data.total,
-              concepto: 'venta_credito',
-              venta_id: ventaCreada.id,
-              fecha_movimiento: new Date(data.fecha_venta).toISOString(),
-            }])
-        }
-
-        toast({
-          title: "Venta creada",
-          description: "La venta se ha creado correctamente.",
+        await createVenta({
+          venta: ventaData,
+          items: ventaItems,
+          pagos: pagosVenta
         })
       }
       
@@ -751,168 +612,51 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
                     </Table>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-            {/* Métodos de pago */}
-            <div className="bg-muted p-4 rounded-lg">
-              <h4 className="font-semibold mb-4">Método de Pago</h4>
-              
-              <FormField
-                control={form.control}
-                name="tipo_pago"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo de Pago</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar tipo" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {TIPOS_PAGO.map((tipo) => (
-                          <SelectItem key={tipo.value} value={tipo.value}>
-                            {tipo.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-3 gap-4 mt-4">
-                <div>
-                  <label className="text-sm font-medium">Subtotal</label>
-                  <Input
-                    type="number"
-                    value={form.watch("subtotal").toFixed(2)}
-                    disabled
-                    className="bg-muted"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium">IVA</label>
-                  <Input
-                    type="number"
-                    value={form.watch("total_iva").toFixed(2)}
-                    disabled
-                    className="bg-muted"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium">Total</label>
-                  <Input
-                    type="number"
-                    value={form.watch("total").toFixed(2)}
-                    disabled
-                    className="bg-muted font-semibold text-lg"
-                  />
-                </div>
-              </div>
-
-              {/* Selector de banco para transferencias */}
-              {watchTipoPago === "transferencia" && (
-                <div className="mt-4">
-                  <FormField
-                    control={form.control}
-                    name="banco_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Banco de Destino</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Seleccionar banco" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {bancos.filter(banco => banco.activo).map((banco) => (
-                              <SelectItem key={banco.id} value={banco.id!}>
-                                {banco.nombre_banco} - {banco.sucursal} - {banco.numero_cuenta}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              )}
-
-              {/* Selector de tarjeta y cuotas */}
-              {watchTipoPago === "tarjeta" && (
-                <div className="mt-4 space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="tarjeta_id"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Tarjeta</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Seleccionar tarjeta" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {tarjetas.filter(tarjeta => tarjeta.activa).map((tarjeta) => (
-                                <SelectItem key={tarjeta.id} value={tarjeta.id!}>
-                                  {tarjeta.nombre}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                
+                {/* Totales */}
+                <div className="grid grid-cols-3 gap-4 pt-4">
+                  <div>
+                    <label className="text-sm font-medium">Subtotal</label>
+                    <Input
+                      type="number"
+                      value={form.watch("subtotal").toFixed(2)}
+                      disabled
+                      className="bg-muted"
                     />
-
-                    {selectedTarjetaId && (
-                      <FormField
-                        control={form.control}
-                        name="cuotas"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Cuotas</FormLabel>
-                            <Select onValueChange={(value) => field.onChange(Number(value))} defaultValue={field.value?.toString()}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Seleccionar cuotas" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                               {Array.isArray(tarjetaCuotas) && tarjetaCuotas.filter(cuota => cuota.activa).map((cuota) => (
-                                  <SelectItem key={cuota.id} value={cuota.cantidad_cuotas.toString()}>
-                                    {cuota.cantidad_cuotas} cuotas 
-                                    {cuota.porcentaje_recargo > 0 && ` (+${cuota.porcentaje_recargo}%)`}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
                   </div>
 
-                  {form.watch("recargo_cuotas") > 0 && (
-                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
-                      <p className="text-sm text-yellow-800">
-                        Recargo por cuotas: ${form.watch("recargo_cuotas").toFixed(2)}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+                  <div>
+                    <label className="text-sm font-medium">IVA</label>
+                    <Input
+                      type="number"
+                      value={form.watch("total_iva").toFixed(2)}
+                      disabled
+                      className="bg-muted"
+                    />
+                  </div>
 
+                  <div>
+                    <label className="text-sm font-medium">Total</label>
+                    <Input
+                      type="number"
+                      value={form.watch("total").toFixed(2)}
+                      disabled
+                      className="bg-muted font-semibold text-lg"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Métodos de pago */}
+            <PagosVentaManager
+              totalVenta={form.watch("total")}
+              clienteId={form.watch("cliente_id")}
+              pagos={pagosVenta}
+              onChange={setPagosVenta}
+            />
+
+            {/* Observaciones */}
             <FormField
               control={form.control}
               name="observaciones"
@@ -920,32 +664,24 @@ const VentaForm: React.FC<VentaFormProps> = ({ venta, onSuccess }) => {
                 <FormItem>
                   <FormLabel>Observaciones</FormLabel>
                   <FormControl>
-                    <Textarea {...field} />
+                    <Textarea {...field} rows={3} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            {/* Botones */}
-            <div className="flex justify-end gap-2">
-              <Button type="submit">
-                {venta ? "Actualizar" : "Guardar"}
-              </Button>
+            {/* Botones de acción */}
+            <div className="flex gap-4 justify-end">
               <Button type="button" variant="outline" onClick={onSuccess}>
                 Cancelar
+              </Button>
+              <Button type="submit">
+                {venta ? "Actualizar Venta" : "Registrar Venta"}
               </Button>
             </div>
           </form>
         </Form>
-        
-        <ChequeDialogForm
-          open={chequeDialogOpen}
-          onOpenChange={setChequeDialogOpen}
-          onSubmit={handleChequeSubmit}
-          monto={form.getValues('total')}
-          clienteId={form.getValues('cliente_id')}
-        />
       </CardContent>
     </Card>
   )

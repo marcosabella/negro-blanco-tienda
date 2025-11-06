@@ -1,3 +1,24 @@
+export interface PagoVenta {
+  id?: string;
+  venta_id?: string;
+  tipo_pago: TipoPago;
+  monto: number;
+  banco_id?: string;
+  tarjeta_id?: string;
+  cuotas?: number;
+  recargo_cuotas?: number;
+  cheque_id?: string;
+  created_at?: string;
+  updated_at?: string;
+  banco?: {
+    nombre_banco: string;
+    numero_cuenta: string;
+  };
+  tarjeta?: {
+    nombre: string;
+  };
+}
+
 export interface Venta {
   id?: string;
   numero_comprobante: string;
@@ -28,6 +49,7 @@ export interface Venta {
     nombre: string;
   }
   venta_items?: VentaItem[];
+  pagos_venta?: PagoVenta[];
 }
 
 export interface VentaItem {

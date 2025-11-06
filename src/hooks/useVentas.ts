@@ -34,7 +34,7 @@ export const useVentas = () => {
   });
 
   const createVentaMutation = useMutation({
-    mutationFn: async ({ venta, items }: { venta: Omit<Venta, "id" | "created_at" | "updated_at">; items: Omit<VentaItem, "id" | "venta_id" | "created_at" | "updated_at">[] }) => {
+    mutationFn: async ({ venta, items, pagos = [] }: { venta: Omit<Venta, "id" | "created_at" | "updated_at">; items: Omit<VentaItem, "id" | "venta_id" | "created_at" | "updated_at">[]; pagos?: any[] }) => {
       const { data: ventaData, error: ventaError } = await supabase
         .from("ventas")
         .insert([venta])
@@ -54,6 +54,20 @@ export const useVentas = () => {
           .insert(itemsWithVentaId);
 
         if (itemsError) throw itemsError;
+      }
+
+      // Insertar pagos
+      if (pagos.length > 0) {
+        const pagosConVentaId = pagos.map(pago => ({
+          ...pago,
+          venta_id: ventaData.id
+        }));
+
+        const { error: pagosError } = await supabase
+          .from("pagos_venta")
+          .insert(pagosConVentaId);
+
+        if (pagosError) throw pagosError;
       }
 
       // If payment type is "cta_cte" and there's a cliente_id, create debit movement
@@ -94,11 +108,13 @@ export const useVentas = () => {
     mutationFn: async ({ 
       ventaId, 
       venta, 
-      items 
+      items,
+      pagos = []
     }: { 
       ventaId: string; 
       venta: Omit<Venta, "id" | "created_at" | "updated_at">; 
-      items: Omit<VentaItem, "id" | "venta_id" | "created_at" | "updated_at">[] 
+      items: Omit<VentaItem, "id" | "venta_id" | "created_at" | "updated_at">[]; 
+      pagos?: any[]
     }) => {
       // First, delete any existing cuenta corriente movements for this sale
       const { error: deleteCuentaError } = await supabase
@@ -138,6 +154,26 @@ export const useVentas = () => {
           .insert(itemsWithVentaId);
 
         if (itemsError) throw itemsError;
+      }
+
+      // Delete existing pagos
+      await supabase
+        .from("pagos_venta")
+        .delete()
+        .eq("venta_id", ventaId);
+
+      // Insert new pagos
+      if (pagos.length > 0) {
+        const pagosConVentaId = pagos.map(pago => ({
+          ...pago,
+          venta_id: ventaId
+        }));
+
+        const { error: pagosError } = await supabase
+          .from("pagos_venta")
+          .insert(pagosConVentaId);
+
+        if (pagosError) throw pagosError;
       }
 
       // If the updated payment type is "cta_cte" and there's a cliente_id, create debit movement

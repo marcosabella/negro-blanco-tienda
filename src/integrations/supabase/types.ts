@@ -370,6 +370,48 @@ export type Database = {
         }
         Relationships: []
       }
+      pagos_venta: {
+        Row: {
+          banco_id: string | null
+          cheque_id: string | null
+          created_at: string
+          cuotas: number | null
+          id: string
+          monto: number
+          recargo_cuotas: number | null
+          tarjeta_id: string | null
+          tipo_pago: Database["public"]["Enums"]["tipo_pago"]
+          updated_at: string
+          venta_id: string
+        }
+        Insert: {
+          banco_id?: string | null
+          cheque_id?: string | null
+          created_at?: string
+          cuotas?: number | null
+          id?: string
+          monto?: number
+          recargo_cuotas?: number | null
+          tarjeta_id?: string | null
+          tipo_pago: Database["public"]["Enums"]["tipo_pago"]
+          updated_at?: string
+          venta_id: string
+        }
+        Update: {
+          banco_id?: string | null
+          cheque_id?: string | null
+          created_at?: string
+          cuotas?: number | null
+          id?: string
+          monto?: number
+          recargo_cuotas?: number | null
+          tarjeta_id?: string | null
+          tipo_pago?: Database["public"]["Enums"]["tipo_pago"]
+          updated_at?: string
+          venta_id?: string
+        }
+        Relationships: []
+      }
       productos: {
         Row: {
           cod_barras: string | null
