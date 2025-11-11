@@ -24,6 +24,12 @@ export const useVentas = () => {
           venta_items(
             *,
             producto:productos(cod_producto, descripcion, precio_venta, porcentaje_iva)
+          ),
+          pagos_venta(
+            *,
+            banco:bancos(nombre_banco),
+            tarjeta:tarjetas_credito(nombre),
+            cheque:cheques(numero_cheque, monto, banco_emisor)
           )
         `)
         .order("created_at", { ascending: false });

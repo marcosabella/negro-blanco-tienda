@@ -226,6 +226,49 @@ export const VentasList = () => {
                 </div>
               )}
 
+              {selectedVenta.pagos_venta && selectedVenta.pagos_venta.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-2">Métodos de Pago</h4>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Método</TableHead>
+                        <TableHead>Detalle</TableHead>
+                        <TableHead>Monto</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedVenta.pagos_venta.map((pago, index) => (
+                        <TableRow key={index}>
+                          <TableCell>
+                            <Badge>
+                              {TIPOS_PAGO.find(t => t.value === pago.tipo_pago)?.label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {pago.tipo_pago === 'tarjeta' && pago.tarjeta && (
+                              <span>{pago.tarjeta.nombre} - {pago.cuotas} cuota{pago.cuotas > 1 ? 's' : ''}</span>
+                            )}
+                            {pago.tipo_pago === 'transferencia' && pago.banco && (
+                              <span>{pago.banco.nombre_banco}</span>
+                            )}
+                            {pago.tipo_pago === 'cheque' && pago.cheque && (
+                              <span>N° {pago.cheque.numero_cheque} - {pago.cheque.banco_emisor}</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-semibold">
+                            ${pago.monto.toFixed(2)}
+                            {pago.recargo_cuotas && pago.recargo_cuotas > 0 && (
+                              <span className="text-xs text-muted-foreground"> (+${pago.recargo_cuotas.toFixed(2)})</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
               <div className="border-t pt-4">
                 <div className="grid grid-cols-3 gap-4 text-right">
                   <div>
@@ -236,15 +279,6 @@ export const VentasList = () => {
                   </div>
                   <div>
                     <p className="text-lg"><strong>Total:</strong> ${selectedVenta.total.toFixed(2)}</p>
-                    {selectedVenta.tipo_pago === 'tarjeta' && selectedVenta.tarjeta && (
-                      <>
-                        <p><strong>Tarjeta:</strong> {selectedVenta.tarjeta.nombre}</p>
-                        <p><strong>Cuotas:</strong> {selectedVenta.cuotas}</p>
-                        {selectedVenta.recargo_cuotas && selectedVenta.recargo_cuotas > 0 && (
-                          <p><strong>Recargo:</strong> ${selectedVenta.recargo_cuotas.toFixed(2)}</p>
-                        )}
-                      </>
-                    )}
                   </div>
                 </div>
               </div>
