@@ -35,7 +35,7 @@ export const useVentas = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data as Venta[];
+      return data as any[];
     },
   });
 

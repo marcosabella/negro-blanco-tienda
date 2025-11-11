@@ -12,10 +12,14 @@ export interface PagoVenta {
   updated_at?: string;
   banco?: {
     nombre_banco: string;
-    numero_cuenta: string;
   };
   tarjeta?: {
     nombre: string;
+  };
+  cheque?: {
+    numero_cheque: string;
+    monto: number;
+    banco_emisor: string;
   };
 }
 
