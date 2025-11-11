@@ -68,22 +68,26 @@ export const useVentas = () => {
           .insert(pagosConVentaId);
 
         if (pagosError) throw pagosError;
-      }
 
-      // If payment type is "cta_cte" and there's a cliente_id, create debit movement
-      if (venta.tipo_pago === 'cta_cte' && venta.cliente_id) {
-        const { error: cuentaError } = await supabase
-          .from("cuenta_corriente")
-          .insert([{
+        // Check if any payment is "cta_cte" and create debit movements
+        const pagosCuentaCorriente = pagos.filter(pago => pago.tipo_pago === 'cta_cte');
+        
+        if (pagosCuentaCorriente.length > 0 && venta.cliente_id) {
+          const movimientos = pagosCuentaCorriente.map(pago => ({
             cliente_id: venta.cliente_id,
             tipo_movimiento: 'debito',
-            monto: venta.total,
+            monto: pago.monto,
             concepto: 'venta_credito',
             venta_id: ventaData.id,
             fecha_movimiento: venta.fecha_venta,
-          }]);
+          }));
 
-        if (cuentaError) throw cuentaError;
+          const { error: cuentaError } = await supabase
+            .from("cuenta_corriente")
+            .insert(movimientos);
+
+          if (cuentaError) throw cuentaError;
+        }
       }
 
       return ventaData;
@@ -174,22 +178,26 @@ export const useVentas = () => {
           .insert(pagosConVentaId);
 
         if (pagosError) throw pagosError;
-      }
 
-      // If the updated payment type is "cta_cte" and there's a cliente_id, create debit movement
-      if (venta.tipo_pago === 'cta_cte' && venta.cliente_id) {
-        const { error: cuentaError } = await supabase
-          .from("cuenta_corriente")
-          .insert([{
+        // Check if any payment is "cta_cte" and create debit movements
+        const pagosCuentaCorriente = pagos.filter(pago => pago.tipo_pago === 'cta_cte');
+        
+        if (pagosCuentaCorriente.length > 0 && venta.cliente_id) {
+          const movimientos = pagosCuentaCorriente.map(pago => ({
             cliente_id: venta.cliente_id,
             tipo_movimiento: 'debito',
-            monto: venta.total,
+            monto: pago.monto,
             concepto: 'venta_credito',
             venta_id: ventaId,
             fecha_movimiento: venta.fecha_venta,
-          }]);
+          }));
 
-        if (cuentaError) throw cuentaError;
+          const { error: cuentaError } = await supabase
+            .from("cuenta_corriente")
+            .insert(movimientos);
+
+          if (cuentaError) throw cuentaError;
+        }
       }
 
       return ventaData;
