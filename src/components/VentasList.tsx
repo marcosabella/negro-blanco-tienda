@@ -10,6 +10,7 @@ import { useVentas } from "@/hooks/useVentas";
 import VentaForm from "./VentaForm"
 import { Venta, TIPOS_PAGO, TIPOS_COMPROBANTE } from "@/types/venta";
 import { format } from "date-fns";
+import { FacturaImpresion } from "./FacturaImpresion";
 
 export const VentasList = () => {
   const { ventas, isLoading, deleteVenta } = useVentas();
@@ -182,16 +183,19 @@ export const VentasList = () => {
           </DialogHeader>
           {selectedVenta && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p><strong>N° Comprobante:</strong> {selectedVenta.numero_comprobante}</p>
-                  <p><strong>Fecha:</strong> {format(new Date(selectedVenta.fecha_venta), "dd/MM/yyyy HH:mm")}</p>
-                  <p><strong>Cliente:</strong> {selectedVenta.cliente_nombre}</p>
+              <div className="flex justify-between items-start mb-4">
+                <div className="grid grid-cols-2 gap-4 flex-1">
+                  <div>
+                    <p><strong>N° Comprobante:</strong> {selectedVenta.numero_comprobante}</p>
+                    <p><strong>Fecha:</strong> {format(new Date(selectedVenta.fecha_venta), "dd/MM/yyyy HH:mm")}</p>
+                    <p><strong>Cliente:</strong> {selectedVenta.cliente_nombre}</p>
+                  </div>
+                  <div>
+                    <p><strong>Tipo Pago:</strong> {TIPOS_PAGO.find(t => t.value === selectedVenta.tipo_pago)?.label}</p>
+                    <p><strong>Comprobante:</strong> {TIPOS_COMPROBANTE.find(t => t.value === selectedVenta.tipo_comprobante)?.label}</p>
+                  </div>
                 </div>
-                <div>
-                  <p><strong>Tipo Pago:</strong> {TIPOS_PAGO.find(t => t.value === selectedVenta.tipo_pago)?.label}</p>
-                  <p><strong>Comprobante:</strong> {TIPOS_COMPROBANTE.find(t => t.value === selectedVenta.tipo_comprobante)?.label}</p>
-                </div>
+                <FacturaImpresion venta={selectedVenta} />
               </div>
 
               {selectedVenta.venta_items && selectedVenta.venta_items.length > 0 && (
