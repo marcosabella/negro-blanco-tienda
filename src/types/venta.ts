@@ -39,6 +39,10 @@ export interface Venta {
   total_iva: number;
   total: number;
   observaciones?: string;
+  cae?: string;
+  cae_vencimiento?: string;
+  cae_solicitado_at?: string;
+  cae_error?: string;
   created_at?: string;
   updated_at?: string;
   cliente?: {

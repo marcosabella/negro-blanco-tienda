@@ -777,6 +777,10 @@ export type Database = {
       ventas: {
         Row: {
           banco_id: string | null
+          cae: string | null
+          cae_error: string | null
+          cae_solicitado_at: string | null
+          cae_vencimiento: string | null
           cliente_id: string | null
           cliente_nombre: string | null
           created_at: string
@@ -796,6 +800,10 @@ export type Database = {
         }
         Insert: {
           banco_id?: string | null
+          cae?: string | null
+          cae_error?: string | null
+          cae_solicitado_at?: string | null
+          cae_vencimiento?: string | null
           cliente_id?: string | null
           cliente_nombre?: string | null
           created_at?: string
@@ -815,6 +823,10 @@ export type Database = {
         }
         Update: {
           banco_id?: string | null
+          cae?: string | null
+          cae_error?: string | null
+          cae_solicitado_at?: string | null
+          cae_vencimiento?: string | null
           cliente_id?: string | null
           cliente_nombre?: string | null
           created_at?: string

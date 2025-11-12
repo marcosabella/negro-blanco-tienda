@@ -1,1 +1,4 @@
 project_id = "zhtqkygjvaaizbdwwsbi"
+
+[functions.obtener-cae-afip]
+verify_jwt = false

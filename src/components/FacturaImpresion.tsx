@@ -336,8 +336,17 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
             <div className="footer-section">
               <div className="cae-info">
                 <div>
-                  <div><strong>CAE N°:</strong> (Pendiente de implementación AFIP)</div>
-                  <div><strong>Fecha Vto. CAE:</strong> (Pendiente)</div>
+                  {venta.cae ? (
+                    <>
+                      <div><strong>CAE N°:</strong> {venta.cae}</div>
+                      <div><strong>Fecha Vto. CAE:</strong> {venta.cae_vencimiento ? format(new Date(venta.cae_vencimiento), 'dd/MM/yyyy') : 'N/A'}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div><strong>CAE N°:</strong> (Pendiente - Usar botón "Obtener CAE")</div>
+                      <div><strong>Fecha Vto. CAE:</strong> (Pendiente)</div>
+                    </>
+                  )}
                 </div>
                 <div>
                   <div className="qr-placeholder">

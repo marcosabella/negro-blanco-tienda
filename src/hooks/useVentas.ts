@@ -268,3 +268,46 @@ export const useVentas = () => {
     isDeleting: deleteVentaMutation.isPending,
   };
 };
+
+export const useObtenerCAE = () => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (ventaId: string) => {
+      console.log('Solicitando CAE para venta:', ventaId);
+      
+      const { data, error } = await supabase.functions.invoke('obtener-cae-afip', {
+        body: { ventaId },
+      });
+
+      if (error) {
+        console.error('Error al invocar función:', error);
+        throw new Error(error.message || 'Error al obtener CAE');
+      }
+
+      if (!data.success) {
+        console.error('Error en respuesta:', data.error);
+        throw new Error(data.error || 'Error al obtener CAE');
+      }
+
+      console.log('CAE obtenido exitosamente:', data);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['ventas'] });
+      toast({
+        title: "CAE obtenido",
+        description: data.mensaje || `CAE: ${data.cae}`,
+      });
+    },
+    onError: (error: Error) => {
+      console.error('Error en mutación:', error);
+      toast({
+        title: "Error al obtener CAE",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+};

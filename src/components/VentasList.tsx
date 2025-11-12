@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Eye, Edit, Trash2 } from "lucide-react";
-import { useVentas } from "@/hooks/useVentas";
+import { Plus, Search, Eye, Edit, Trash2, FileCheck } from "lucide-react";
+import { useVentas, useObtenerCAE } from "@/hooks/useVentas";
 import VentaForm from "./VentaForm"
 import { Venta, TIPOS_PAGO, TIPOS_COMPROBANTE } from "@/types/venta";
 import { format } from "date-fns";
@@ -14,6 +14,7 @@ import { FacturaImpresion } from "./FacturaImpresion";
 
 export const VentasList = () => {
   const { ventas, isLoading, deleteVenta } = useVentas();
+  const { mutate: obtenerCAE, isPending: isObteniendoCAE } = useObtenerCAE();
   const [showForm, setShowForm] = useState(false);
   const [editingVenta, setEditingVenta] = useState<Venta | null>(null);
   const [selectedVenta, setSelectedVenta] = useState<Venta | null>(null);
@@ -189,13 +190,35 @@ export const VentasList = () => {
                     <p><strong>N° Comprobante:</strong> {selectedVenta.numero_comprobante}</p>
                     <p><strong>Fecha:</strong> {format(new Date(selectedVenta.fecha_venta), "dd/MM/yyyy HH:mm")}</p>
                     <p><strong>Cliente:</strong> {selectedVenta.cliente_nombre}</p>
+                    {selectedVenta.cae && (
+                      <>
+                        <p><strong>CAE:</strong> {selectedVenta.cae}</p>
+                        <p><strong>Vto. CAE:</strong> {selectedVenta.cae_vencimiento ? format(new Date(selectedVenta.cae_vencimiento), "dd/MM/yyyy") : 'N/A'}</p>
+                      </>
+                    )}
+                    {selectedVenta.cae_error && (
+                      <p className="text-destructive text-sm"><strong>Error CAE:</strong> {selectedVenta.cae_error}</p>
+                    )}
                   </div>
                   <div>
                     <p><strong>Tipo Pago:</strong> {TIPOS_PAGO.find(t => t.value === selectedVenta.tipo_pago)?.label}</p>
                     <p><strong>Comprobante:</strong> {TIPOS_COMPROBANTE.find(t => t.value === selectedVenta.tipo_comprobante)?.label}</p>
                   </div>
                 </div>
-                <FacturaImpresion venta={selectedVenta} />
+                <div className="flex gap-2">
+                  {!selectedVenta.cae && selectedVenta.tipo_comprobante !== 'ticket_fiscal' && (
+                    <Button
+                      onClick={() => obtenerCAE(selectedVenta.id)}
+                      disabled={isObteniendoCAE}
+                      variant="outline"
+                      size="sm"
+                    >
+                      <FileCheck className="h-4 w-4 mr-2" />
+                      {isObteniendoCAE ? 'Obteniendo...' : 'Obtener CAE'}
+                    </Button>
+                  )}
+                  <FacturaImpresion venta={selectedVenta} />
+                </div>
               </div>
 
               {selectedVenta.venta_items && selectedVenta.venta_items.length > 0 && (
