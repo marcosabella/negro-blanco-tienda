@@ -1,9 +1,11 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
 import { Venta, TIPOS_PAGO } from "@/types/venta";
 import { format } from "date-fns";
 import { useComercio } from "@/hooks/useComercio";
+import { useAfipConfig } from "@/hooks/useAfipConfig";
+import { generarQRAfip } from "@/utils/afipQr";
 
 interface FacturaImpresionProps {
   venta: Venta;
@@ -12,6 +14,8 @@ interface FacturaImpresionProps {
 export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
   const printRef = useRef<HTMLDivElement>(null);
   const { comercio } = useComercio();
+  const { data: afipConfig } = useAfipConfig();
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
 
   const handlePrint = () => {
     const printContent = printRef.current;
@@ -19,6 +23,17 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
 
     const printWindow = window.open('', '', 'width=800,height=600');
     if (!printWindow) return;
+
+    // Clonar el contenido y reemplazar el QR con el data URL si existe
+    const clonedContent = printContent.cloneNode(true) as HTMLElement;
+    
+    // Si hay QR generado, actualizar la imagen en el clon
+    if (qrDataUrl) {
+      const qrImg = clonedContent.querySelector('.qr-container img') as HTMLImageElement;
+      if (qrImg) {
+        qrImg.src = qrDataUrl;
+      }
+    }
 
     printWindow.document.write(`
       <html>
@@ -128,14 +143,29 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
               gap: 10px;
               margin-top: 10px;
             }
-            .qr-placeholder {
-              width: 100px;
-              height: 100px;
+            .qr-container {
+              width: 120px;
+              height: 120px;
               border: 1px solid #000;
               display: flex;
               align-items: center;
               justify-content: center;
               margin: 10px auto;
+              overflow: hidden;
+            }
+            .qr-container img {
+              width: 100%;
+              height: 100%;
+              object-fit: contain;
+            }
+            .qr-placeholder {
+              width: 100%;
+              height: 100%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 10px;
+              text-align: center;
             }
             .bold {
               font-weight: bold;
@@ -151,7 +181,7 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
           </style>
         </head>
         <body>
-          ${printContent.innerHTML}
+          ${clonedContent.innerHTML}
         </body>
       </html>
     `);
@@ -182,6 +212,28 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
     if (tipo === 'factura_exportacion') return 'FACTURA DE EXPORTACIÓN';
     return 'COMPROBANTE';
   };
+
+  // Generar QR cuando hay CAE
+  useEffect(() => {
+    if (venta.cae && comercio && afipConfig) {
+      generarQRAfip({
+        fecha: venta.fecha_venta,
+        cuit: comercio.cuit,
+        puntoVenta: afipConfig.punto_venta,
+        tipoComprobante: venta.tipo_comprobante,
+        numeroComprobante: venta.numero_comprobante,
+        importe: venta.total,
+        cae: venta.cae,
+      })
+        .then(setQrDataUrl)
+        .catch((error) => {
+          console.error('Error generando QR AFIP:', error);
+          setQrDataUrl('');
+        });
+    } else {
+      setQrDataUrl('');
+    }
+  }, [venta.cae, venta.fecha_venta, venta.tipo_comprobante, venta.numero_comprobante, venta.total, comercio, afipConfig]);
 
   const comercioData = comercio;
 
@@ -349,8 +401,14 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
                   )}
                 </div>
                 <div>
-                  <div className="qr-placeholder">
-                    Código QR<br/>AFIP
+                  <div className="qr-container">
+                    {qrDataUrl ? (
+                      <img src={qrDataUrl} alt="QR AFIP" />
+                    ) : (
+                      <div className="qr-placeholder">
+                        {venta.cae ? 'Código QR AFIP' : 'Sin CAE - Use botón "Obtener CAE"'}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
