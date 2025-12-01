@@ -63,6 +63,11 @@ Deno.serve(async (req) => {
       throw new Error('No hay configuración AFIP activa. Configure AFIP primero.');
     }
 
+    // Validar que los certificados estén cargados
+    if (!afipConfig.certificado_crt || !afipConfig.certificado_key) {
+      throw new Error('Los certificados digitales no están cargados. Debe cargar el certificado (.crt) y la clave privada (.key) en la configuración AFIP.');
+    }
+
     console.log('Configuración AFIP:', {
       punto_venta: afipConfig.punto_venta,
       ambiente: afipConfig.ambiente,
