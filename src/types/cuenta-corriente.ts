@@ -40,6 +40,7 @@ export const CONCEPTOS_MOVIMIENTO = [
   { value: 'pago_efectivo', label: 'Pago en Efectivo' },
   { value: 'pago_transferencia', label: 'Pago por Transferencia' },
   { value: 'pago_cheque', label: 'Pago con Cheque' },
+  { value: 'pago_cuenta_corriente', label: 'Pago en Cuenta Corriente' },
   { value: 'nota_credito', label: 'Nota de Crédito' },
   { value: 'nota_debito', label: 'Nota de Débito' },
   { value: 'ajuste', label: 'Ajuste' },

@@ -77,13 +77,13 @@ export const useVentas = () => {
 
         // Check if any payment is "cta_cte" and create debit movements
         const pagosCuentaCorriente = pagos.filter(pago => pago.tipo_pago === 'cta_cte');
-        
+
         if (pagosCuentaCorriente.length > 0 && venta.cliente_id) {
           const movimientos = pagosCuentaCorriente.map(pago => ({
             cliente_id: venta.cliente_id,
             tipo_movimiento: 'debito',
             monto: pago.monto,
-            concepto: 'venta_credito',
+            concepto: 'pago_cuenta_corriente',
             venta_id: ventaData.id,
             fecha_movimiento: venta.fecha_venta,
           }));
@@ -187,13 +187,13 @@ export const useVentas = () => {
 
         // Check if any payment is "cta_cte" and create debit movements
         const pagosCuentaCorriente = pagos.filter(pago => pago.tipo_pago === 'cta_cte');
-        
+
         if (pagosCuentaCorriente.length > 0 && venta.cliente_id) {
           const movimientos = pagosCuentaCorriente.map(pago => ({
             cliente_id: venta.cliente_id,
             tipo_movimiento: 'debito',
             monto: pago.monto,
-            concepto: 'venta_credito',
+            concepto: 'pago_cuenta_corriente',
             venta_id: ventaId,
             fecha_movimiento: venta.fecha_venta,
           }));
