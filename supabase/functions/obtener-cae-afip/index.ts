@@ -5,6 +5,252 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Función para crear el TRA (Ticket de Requerimiento de Acceso)
+function crearTRA(service: string, ambiente: 'homologacion' | 'produccion'): string {
+  const ahora = new Date();
+  const generationTime = new Date(ahora.getTime() - 10 * 60000); // 10 minutos atrás
+  const expirationTime = new Date(ahora.getTime() + 10 * 60000); // 10 minutos adelante
+  
+  const uniqueId = Date.now();
+  
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<loginTicketRequest version="1.0">
+  <header>
+    <uniqueId>${uniqueId}</uniqueId>
+    <generationTime>${generationTime.toISOString()}</generationTime>
+    <expirationTime>${expirationTime.toISOString()}</expirationTime>
+  </header>
+  <service>${service}</service>
+</loginTicketRequest>`;
+}
+
+// Función para firmar el TRA con el certificado
+async function firmarTRA(tra: string, certPem: string, keyPem: string): Promise<string> {
+  try {
+    // Importar la clave privada
+    const keyData = keyPem
+      .replace('-----BEGIN PRIVATE KEY-----', '')
+      .replace('-----END PRIVATE KEY-----', '')
+      .replace(/\s/g, '');
+    
+    const keyBytes = Uint8Array.from(atob(keyData), c => c.charCodeAt(0));
+    
+    const privateKey = await crypto.subtle.importKey(
+      'pkcs8',
+      keyBytes,
+      {
+        name: 'RSASSA-PKCS1-v1_5',
+        hash: 'SHA-256',
+      },
+      false,
+      ['sign']
+    );
+
+    // Firmar el TRA
+    const encoder = new TextEncoder();
+    const data = encoder.encode(tra);
+    const signature = await crypto.subtle.sign(
+      'RSASSA-PKCS1-v1_5',
+      privateKey,
+      data
+    );
+
+    // Codificar la firma en base64
+    const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
+
+    // Extraer el certificado sin headers
+    const certData = certPem
+      .replace('-----BEGIN CERTIFICATE-----', '')
+      .replace('-----END CERTIFICATE-----', '')
+      .replace(/\s/g, '');
+
+    // Crear el CMS (PKCS#7) manualmente
+    const cms = `<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wsaa="http://wsaa.view.sua.dvadac.desein.afip.gov">
+  <soapenv:Header/>
+  <soapenv:Body>
+    <wsaa:loginCms>
+      <wsaa:in0><![CDATA[${btoa(tra)}]]></wsaa:in0>
+    </wsaa:loginCms>
+  </soapenv:Body>
+</soapenv:Envelope>`;
+
+    return cms;
+  } catch (error) {
+    console.error('Error al firmar TRA:', error);
+    throw new Error(`Error al firmar TRA: ${error.message}`);
+  }
+}
+
+// Función para llamar al WSAA y obtener TA (Token y Sign)
+async function obtenerTokenYSign(
+  certPem: string,
+  keyPem: string,
+  service: string,
+  ambiente: 'homologacion' | 'produccion'
+): Promise<{ token: string; sign: string; expirationTime: string }> {
+  try {
+    console.log('Creando TRA para servicio:', service);
+    const tra = crearTRA(service, ambiente);
+    
+    console.log('Firmando TRA...');
+    const cms = await firmarTRA(tra, certPem, keyPem);
+    
+    // URL del WSAA según ambiente
+    const wsaaUrl = ambiente === 'produccion'
+      ? 'https://wsaa.afip.gov.ar/ws/services/LoginCms'
+      : 'https://wsaahomo.afip.gov.ar/ws/services/LoginCms';
+    
+    console.log('Llamando a WSAA:', wsaaUrl);
+    
+    const response = await fetch(wsaaUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/xml; charset=utf-8',
+        'SOAPAction': '',
+      },
+      body: cms,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error en WSAA:', response.status, errorText);
+      throw new Error(`Error en WSAA: ${response.status} - ${errorText}`);
+    }
+
+    const responseText = await response.text();
+    console.log('Respuesta WSAA recibida');
+
+    // Parsear la respuesta XML para extraer token, sign y expirationTime
+    const tokenMatch = responseText.match(/<token>(.*?)<\/token>/s);
+    const signMatch = responseText.match(/<sign>(.*?)<\/sign>/s);
+    const expirationMatch = responseText.match(/<expirationTime>(.*?)<\/expirationTime>/s);
+
+    if (!tokenMatch || !signMatch || !expirationMatch) {
+      console.error('Respuesta WSAA:', responseText);
+      throw new Error('No se pudo extraer token, sign o expirationTime de la respuesta WSAA');
+    }
+
+    return {
+      token: tokenMatch[1].trim(),
+      sign: signMatch[1].trim(),
+      expirationTime: expirationMatch[1].trim(),
+    };
+  } catch (error) {
+    console.error('Error en obtenerTokenYSign:', error);
+    throw error;
+  }
+}
+
+// Función para llamar a WSFE y solicitar CAE
+async function solicitarCAE(
+  token: string,
+  sign: string,
+  cuit: string,
+  puntoVenta: number,
+  solicitud: any,
+  ambiente: 'homologacion' | 'produccion'
+): Promise<{ cae: string; caeVencimiento: string }> {
+  try {
+    const wsfeUrl = ambiente === 'produccion'
+      ? 'https://servicios1.afip.gov.ar/wsfev1/service.asmx'
+      : 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx';
+
+    const soapBody = `<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:ar="http://ar.gov.afip.dif.FEV1/">
+  <soap:Header/>
+  <soap:Body>
+    <ar:FECAESolicitar>
+      <ar:Auth>
+        <ar:Token>${token}</ar:Token>
+        <ar:Sign>${sign}</ar:Sign>
+        <ar:Cuit>${cuit}</ar:Cuit>
+      </ar:Auth>
+      <ar:FeCAEReq>
+        <ar:FeCabReq>
+          <ar:CantReg>${solicitud.FeCabReq.CantReg}</ar:CantReg>
+          <ar:PtoVta>${solicitud.FeCabReq.PtoVta}</ar:PtoVta>
+          <ar:CbteTipo>${solicitud.FeCabReq.CbteTipo}</ar:CbteTipo>
+        </ar:FeCabReq>
+        <ar:FeDetReq>
+          <ar:FECAEDetRequest>
+            <ar:Concepto>${solicitud.FeDetReq.FECAEDetRequest.Concepto}</ar:Concepto>
+            <ar:DocTipo>${solicitud.FeDetReq.FECAEDetRequest.DocTipo}</ar:DocTipo>
+            <ar:DocNro>${solicitud.FeDetReq.FECAEDetRequest.DocNro}</ar:DocNro>
+            <ar:CbteDesde>${solicitud.FeDetReq.FECAEDetRequest.CbteDesde}</ar:CbteDesde>
+            <ar:CbteHasta>${solicitud.FeDetReq.FECAEDetRequest.CbteHasta}</ar:CbteHasta>
+            <ar:CbteFch>${solicitud.FeDetReq.FECAEDetRequest.CbteFch}</ar:CbteFch>
+            <ar:ImpTotal>${solicitud.FeDetReq.FECAEDetRequest.ImpTotal}</ar:ImpTotal>
+            <ar:ImpTotConc>${solicitud.FeDetReq.FECAEDetRequest.ImpTotConc}</ar:ImpTotConc>
+            <ar:ImpNeto>${solicitud.FeDetReq.FECAEDetRequest.ImpNeto}</ar:ImpNeto>
+            <ar:ImpOpEx>${solicitud.FeDetReq.FECAEDetRequest.ImpOpEx}</ar:ImpOpEx>
+            <ar:ImpIVA>${solicitud.FeDetReq.FECAEDetRequest.ImpIVA}</ar:ImpIVA>
+            <ar:ImpTrib>${solicitud.FeDetReq.FECAEDetRequest.ImpTrib}</ar:ImpTrib>
+            <ar:MonId>${solicitud.FeDetReq.FECAEDetRequest.MonId}</ar:MonId>
+            <ar:MonCotiz>${solicitud.FeDetReq.FECAEDetRequest.MonCotiz}</ar:MonCotiz>
+            ${solicitud.FeDetReq.FECAEDetRequest.Iva.AlicIva.map((alicuota: any) => `
+            <ar:Iva>
+              <ar:AlicIva>
+                <ar:Id>${alicuota.Id}</ar:Id>
+                <ar:BaseImp>${alicuota.BaseImp}</ar:BaseImp>
+                <ar:Importe>${alicuota.Importe}</ar:Importe>
+              </ar:AlicIva>
+            </ar:Iva>`).join('')}
+          </ar:FECAEDetRequest>
+        </ar:FeDetReq>
+      </ar:FeCAEReq>
+    </ar:FECAESolicitar>
+  </soap:Body>
+</soap:Envelope>`;
+
+    console.log('Llamando a WSFE:', wsfeUrl);
+
+    const response = await fetch(wsfeUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/soap+xml; charset=utf-8',
+        'SOAPAction': 'http://ar.gov.afip.dif.FEV1/FECAESolicitar',
+      },
+      body: soapBody,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error en WSFE:', response.status, errorText);
+      throw new Error(`Error en WSFE: ${response.status}`);
+    }
+
+    const responseText = await response.text();
+    console.log('Respuesta WSFE recibida');
+
+    // Parsear respuesta SOAP
+    const caeMatch = responseText.match(/<CAE>(.*?)<\/CAE>/);
+    const caeVencMatch = responseText.match(/<CAEFchVto>(.*?)<\/CAEFchVto>/);
+    const resultadoMatch = responseText.match(/<Resultado>([AR])<\/Resultado>/);
+    
+    // Verificar errores
+    const obsMatch = responseText.match(/<Obs>.*?<Msg>(.*?)<\/Msg>.*?<\/Obs>/s);
+    
+    if (resultadoMatch && resultadoMatch[1] === 'R') {
+      const errorMsg = obsMatch ? obsMatch[1] : 'Error desconocido en WSFE';
+      throw new Error(`AFIP rechazó la solicitud: ${errorMsg}`);
+    }
+
+    if (!caeMatch || !caeVencMatch) {
+      console.error('Respuesta WSFE completa:', responseText);
+      throw new Error('No se pudo extraer CAE de la respuesta WSFE');
+    }
+
+    return {
+      cae: caeMatch[1],
+      caeVencimiento: caeVencMatch[1],
+    };
+  } catch (error) {
+    console.error('Error en solicitarCAE:', error);
+    throw error;
+  }
+}
+
 interface AfipConfig {
   punto_venta: number;
   cuit_emisor: string;
@@ -211,29 +457,40 @@ Deno.serve(async (req) => {
 
     console.log('Solicitud AFIP preparada:', JSON.stringify(solicitudAfip, null, 2));
 
-    // TODO: Implementar autenticación real con WSAA usando certificados
-    // Por ahora, simular respuesta de AFIP en ambiente de homologación
-    
-    // NOTA: Para implementación real, necesitaría:
-    // 1. Llamar a WSAA con el certificado para obtener token y sign
-    // 2. Usar ese token/sign para llamar a WSFE
-    // 3. Parsear respuesta SOAP
-    
-    // Simulación para pruebas (en ambiente de homologación AFIP devolvería datos similares)
-    const caeSimulado = `${Date.now().toString().slice(-14)}`; // 14 dígitos
-    const fechaVencimiento = new Date();
-    fechaVencimiento.setDate(fechaVencimiento.getDate() + 10); // CAE válido por 10 días
-    const fechaVencimientoStr = fechaVencimiento.toISOString().split('T')[0];
+    // Autenticación con WSAA para obtener token y sign
+    console.log('Obteniendo token y sign de WSAA...');
+    const { token, sign } = await obtenerTokenYSign(
+      afipConfig.certificado_crt,
+      afipConfig.certificado_key,
+      'wsfe',
+      afipConfig.ambiente
+    );
+    console.log('Token y Sign obtenidos exitosamente');
 
-    console.log('CAE simulado generado:', caeSimulado);
+    // Solicitar CAE a WSFE
+    console.log('Solicitando CAE a WSFE...');
+    const { cae, caeVencimiento } = await solicitarCAE(
+      token,
+      sign,
+      afipConfig.cuit_emisor,
+      afipConfig.punto_venta,
+      solicitudAfip.FeCAEReq,
+      afipConfig.ambiente
+    );
+    
+    // Formatear fecha de vencimiento (viene en formato YYYYMMDD)
+    const fechaVencimientoStr = `${caeVencimiento.substring(0, 4)}-${caeVencimiento.substring(4, 6)}-${caeVencimiento.substring(6, 8)}`;
+
+    console.log('CAE obtenido exitosamente:', cae, 'Vencimiento:', fechaVencimientoStr);
 
     // Actualizar venta con CAE
     const { error: updateError } = await supabase
       .from('ventas')
       .update({
-        cae: caeSimulado,
+        cae: cae,
         cae_vencimiento: fechaVencimientoStr,
         cae_solicitado_at: new Date().toISOString(),
+        cae_error: null, // Limpiar error previo si existía
       })
       .eq('id', ventaId);
 
@@ -246,11 +503,11 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        cae: caeSimulado,
+        cae: cae,
         cae_vencimiento: fechaVencimientoStr,
         mensaje: afipConfig.ambiente === 'homologacion' 
-          ? 'CAE generado en modo prueba. Configure certificados de producción para obtener CAE real.'
-          : 'CAE obtenido exitosamente',
+          ? 'CAE obtenido en ambiente de homologación (testing)'
+          : 'CAE obtenido exitosamente en producción',
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
