@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAfipConfig, useCreateAfipConfig, useUpdateAfipConfig } from '@/hooks/useAfipConfig';
+import { useConsultarUltimoComprobante } from '@/hooks/useConsultarUltimoComprobante';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,13 +10,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { AMBIENTES_AFIP } from '@/types/afip';
-import { FileKey, Save, RefreshCw, Upload, CheckCircle, Folder } from 'lucide-react';
+import { AMBIENTES_AFIP, TIPOS_COMPROBANTE } from '@/types/afip';
+import { FileKey, Save, RefreshCw, Upload, CheckCircle, Folder, Search } from 'lucide-react';
+import { toast } from 'sonner';
 
 const Afip = () => {
   const { data: config, isLoading } = useAfipConfig();
   const createConfig = useCreateAfipConfig();
   const updateConfig = useUpdateAfipConfig();
+  const consultarUltimo = useConsultarUltimoComprobante();
 
   const [puntoVenta, setPuntoVenta] = useState(config?.punto_venta || 1);
   const [cuitEmisor, setCuitEmisor] = useState(config?.cuit_emisor || '');
@@ -27,6 +30,7 @@ const Afip = () => {
   const [activo, setActivo] = useState(config?.activo ?? true);
   const [crtError, setCrtError] = useState('');
   const [keyError, setKeyError] = useState('');
+  const [tipoComprobanteConsulta, setTipoComprobanteConsulta] = useState('factura_b');
 
   const inputCrtRef = useRef<HTMLInputElement>(null);
   const inputKeyRef = useRef<HTMLInputElement>(null);
@@ -124,6 +128,14 @@ const Afip = () => {
     } else {
       createConfig.mutate(configData);
     }
+  };
+
+  const handleConsultarUltimo = () => {
+    if (!config?.id || !certificadoCrt || !certificadoKey) {
+      toast.error('Debe guardar la configuración antes de consultar');
+      return;
+    }
+    consultarUltimo.mutate({ tipoComprobante: tipoComprobanteConsulta });
   };
 
   if (isLoading) {
@@ -344,6 +356,65 @@ const Afip = () => {
             </form>
           </CardContent>
         </Card>
+
+        {config?.id && certificadoCrt && certificadoKey && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Consultar Último Comprobante</CardTitle>
+              <CardDescription>
+                Obtenga el último número de comprobante autorizado por AFIP según punto de venta y tipo
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="tipoComprobanteConsulta">Tipo de Comprobante</Label>
+                    <Select value={tipoComprobanteConsulta} onValueChange={setTipoComprobanteConsulta}>
+                      <SelectTrigger id="tipoComprobanteConsulta">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIPOS_COMPROBANTE.filter(t => 
+                          t.value.includes('factura') || 
+                          t.value.includes('nota_credito') || 
+                          t.value.includes('nota_debito')
+                        ).map((tipo) => (
+                          <SelectItem key={tipo.value} value={tipo.value}>
+                            {tipo.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Punto de Venta Configurado</Label>
+                    <Input value={puntoVenta} disabled />
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleConsultarUltimo}
+                  disabled={consultarUltimo.isPending}
+                  className="w-full md:w-auto"
+                >
+                  {consultarUltimo.isPending ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Consultando...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="mr-2 h-4 w-4" />
+                      Consultar Último Número
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
