@@ -6,14 +6,19 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Función para formatear fecha en formato AFIP (ISO 8601 sin milisegundos)
+// Función para formatear fecha en formato AFIP (ISO 8601 con timezone Argentina)
 function formatearFechaAFIP(fecha: Date): string {
-  const year = fecha.getUTCFullYear();
-  const month = String(fecha.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(fecha.getUTCDate()).padStart(2, '0');
-  const hours = String(fecha.getUTCHours()).padStart(2, '0');
-  const minutes = String(fecha.getUTCMinutes()).padStart(2, '0');
-  const seconds = String(fecha.getUTCSeconds()).padStart(2, '0');
+  // Convertir a hora Argentina (UTC-3)
+  const argentinaOffset = -3 * 60 * 60 * 1000; // -3 horas en milisegundos
+  const utcTime = fecha.getTime();
+  const argentinaTime = new Date(utcTime + argentinaOffset);
+  
+  const year = argentinaTime.getUTCFullYear();
+  const month = String(argentinaTime.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(argentinaTime.getUTCDate()).padStart(2, '0');
+  const hours = String(argentinaTime.getUTCHours()).padStart(2, '0');
+  const minutes = String(argentinaTime.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(argentinaTime.getUTCSeconds()).padStart(2, '0');
   
   return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-03:00`;
 }
