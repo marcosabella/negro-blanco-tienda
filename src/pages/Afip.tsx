@@ -10,8 +10,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { AMBIENTES_AFIP, TIPOS_COMPROBANTE } from '@/types/afip';
-import { FileKey, Save, RefreshCw, Upload, CheckCircle, Folder, Search } from 'lucide-react';
+import { FileKey, Save, RefreshCw, CheckCircle, Folder, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Afip = () => {
@@ -31,6 +32,13 @@ const Afip = () => {
   const [crtError, setCrtError] = useState('');
   const [keyError, setKeyError] = useState('');
   const [tipoComprobanteConsulta, setTipoComprobanteConsulta] = useState('factura_b');
+  const [showResultDialog, setShowResultDialog] = useState(false);
+  const [resultadoConsulta, setResultadoConsulta] = useState<{
+    ultimoNumero?: number;
+    puntoVenta?: number;
+    tipoComprobante?: string;
+    ambiente?: string;
+  } | null>(null);
 
   const inputCrtRef = useRef<HTMLInputElement>(null);
   const inputKeyRef = useRef<HTMLInputElement>(null);
@@ -135,7 +143,15 @@ const Afip = () => {
       toast.error('Debe guardar la configuración antes de consultar');
       return;
     }
-    consultarUltimo.mutate({ tipoComprobante: tipoComprobanteConsulta });
+    consultarUltimo.mutate(
+      { tipoComprobante: tipoComprobanteConsulta },
+      {
+        onSuccess: (data) => {
+          setResultadoConsulta(data);
+          setShowResultDialog(true);
+        },
+      }
+    );
   };
 
   if (isLoading) {
@@ -415,6 +431,60 @@ const Afip = () => {
             </CardContent>
           </Card>
         )}
+
+        <Dialog open={showResultDialog} onOpenChange={setShowResultDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-green-500" />
+                Resultado de Consulta AFIP
+              </DialogTitle>
+              <DialogDescription>
+                Último comprobante autorizado
+              </DialogDescription>
+            </DialogHeader>
+            
+            {resultadoConsulta && (
+              <div className="space-y-4 py-4">
+                <div className="flex items-center justify-center">
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground mb-1">Último Número</p>
+                    <p className="text-5xl font-bold text-primary">
+                      {resultadoConsulta.ultimoNumero}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground">Punto de Venta</p>
+                    <p className="text-lg font-semibold">{resultadoConsulta.puntoVenta}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground">Ambiente</p>
+                    <Badge variant={resultadoConsulta.ambiente === 'produccion' ? 'default' : 'secondary'}>
+                      {resultadoConsulta.ambiente === 'produccion' ? 'Producción' : 'Homologación'}
+                    </Badge>
+                  </div>
+                </div>
+                
+                <div className="text-center pt-2">
+                  <p className="text-sm text-muted-foreground">Tipo de Comprobante</p>
+                  <p className="text-base font-medium">
+                    {TIPOS_COMPROBANTE.find(t => t.value === resultadoConsulta.tipoComprobante)?.label || resultadoConsulta.tipoComprobante}
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            <DialogFooter>
+              <Button onClick={() => setShowResultDialog(false)} className="w-full">
+                <X className="mr-2 h-4 w-4" />
+                Cerrar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

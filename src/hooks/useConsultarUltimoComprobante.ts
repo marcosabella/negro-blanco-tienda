@@ -35,14 +35,6 @@ export const useConsultarUltimoComprobante = () => {
 
       return data;
     },
-    onSuccess: (data) => {
-      toast.success(
-        `Último comprobante: ${data.ultimoNumero}`,
-        {
-          description: `Punto de Venta: ${data.puntoVenta} - Ambiente: ${data.ambiente}`,
-        }
-      );
-    },
     onError: (error: Error) => {
       toast.error('Error al consultar último comprobante', {
         description: error.message,
