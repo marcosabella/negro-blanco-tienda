@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0';
+import forge from 'https://esm.sh/node-forge@1.3.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,45 +24,58 @@ function crearTRA(service: string): string {
 </loginTicketRequest>`;
 }
 
-// Función para firmar el TRA
-async function firmarTRA(tra: string, certPem: string, keyPem: string): Promise<string> {
+// Función para firmar el TRA usando PKCS#7/CMS
+function firmarTRA(tra: string, certPem: string, keyPem: string): string {
   try {
-    const keyData = keyPem
-      .replace('-----BEGIN PRIVATE KEY-----', '')
-      .replace('-----END PRIVATE KEY-----', '')
-      .replace(/\s/g, '');
+    console.log('Iniciando firma del TRA...');
     
-    const keyBytes = Uint8Array.from(atob(keyData), c => c.charCodeAt(0));
+    // Parsear certificado y clave privada
+    const certificate = forge.pki.certificateFromPem(certPem);
+    const privateKey = forge.pki.privateKeyFromPem(keyPem);
     
-    const privateKey = await crypto.subtle.importKey(
-      'pkcs8',
-      keyBytes,
-      {
-        name: 'RSASSA-PKCS1-v1_5',
-        hash: 'SHA-256',
-      },
-      false,
-      ['sign']
-    );
-
-    const encoder = new TextEncoder();
-    const data = encoder.encode(tra);
-    const signature = await crypto.subtle.sign(
-      'RSASSA-PKCS1-v1_5',
-      privateKey,
-      data
-    );
-
-    const cms = `<?xml version="1.0" encoding="UTF-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wsaa="http://wsaa.view.sua.dvadac.desein.afip.gov">
-  <soapenv:Header/>
-  <soapenv:Body>
-    <wsaa:loginCms>
-      <wsaa:in0><![CDATA[${btoa(tra)}]]></wsaa:in0>
-    </wsaa:loginCms>
-  </soapenv:Body>
-</soapenv:Envelope>`;
-
+    console.log('Certificado y clave privada parseados correctamente');
+    
+    // Crear el mensaje PKCS#7 firmado
+    const p7 = forge.pkcs7.createSignedData();
+    
+    // Agregar el contenido (TRA)
+    p7.content = forge.util.createBuffer(tra, 'utf8');
+    
+    // Agregar el certificado del firmante
+    p7.addCertificate(certificate);
+    
+    // Agregar el firmante
+    p7.addSigner({
+      key: privateKey,
+      certificate: certificate,
+      digestAlgorithm: forge.pki.oids.sha256,
+      authenticatedAttributes: [
+        {
+          type: forge.pki.oids.contentType,
+          value: forge.pki.oids.data
+        },
+        {
+          type: forge.pki.oids.messageDigest
+        },
+        {
+          type: forge.pki.oids.signingTime,
+          value: new Date()
+        }
+      ]
+    });
+    
+    // Firmar
+    p7.sign();
+    
+    console.log('TRA firmado correctamente');
+    
+    // Convertir a DER y luego a Base64
+    const asn1 = p7.toAsn1();
+    const der = forge.asn1.toDer(asn1);
+    const cms = forge.util.encode64(der.getBytes());
+    
+    console.log('CMS generado, longitud:', cms.length);
+    
     return cms;
   } catch (error) {
     console.error('Error al firmar TRA:', error);
@@ -78,11 +92,25 @@ async function obtenerTokenYSign(
 ): Promise<{ token: string; sign: string }> {
   try {
     const tra = crearTRA(service);
-    const cms = await firmarTRA(tra, certPem, keyPem);
+    console.log('TRA creado:', tra.substring(0, 200) + '...');
+    
+    const cms = firmarTRA(tra, certPem, keyPem);
     
     const wsaaUrl = ambiente === 'produccion'
       ? 'https://wsaa.afip.gov.ar/ws/services/LoginCms'
       : 'https://wsaahomo.afip.gov.ar/ws/services/LoginCms';
+    
+    console.log('Enviando request a WSAA:', wsaaUrl);
+    
+    const soapRequest = `<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wsaa="http://wsaa.view.sua.dvadac.desein.afip.gov">
+  <soapenv:Header/>
+  <soapenv:Body>
+    <wsaa:loginCms>
+      <wsaa:in0>${cms}</wsaa:in0>
+    </wsaa:loginCms>
+  </soapenv:Body>
+</soapenv:Envelope>`;
     
     const response = await fetch(wsaaUrl, {
       method: 'POST',
@@ -90,22 +118,49 @@ async function obtenerTokenYSign(
         'Content-Type': 'text/xml; charset=utf-8',
         'SOAPAction': '',
       },
-      body: cms,
+      body: soapRequest,
     });
 
+    const responseText = await response.text();
+    console.log('Respuesta WSAA status:', response.status);
+    
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Error en WSAA: ${response.status} - ${errorText}`);
+      console.error('Error WSAA response:', responseText);
+      throw new Error(`Error en WSAA: ${response.status} - ${responseText}`);
     }
 
-    const responseText = await response.text();
-    const tokenMatch = responseText.match(/<token>(.*?)<\/token>/s);
-    const signMatch = responseText.match(/<sign>(.*?)<\/sign>/s);
+    // Extraer el loginTicketResponse del CDATA
+    const loginTicketMatch = responseText.match(/<loginTicketResponse[^>]*>([\s\S]*?)<\/loginTicketResponse>/);
+    
+    if (!loginTicketMatch) {
+      // Intentar extraer del CDATA si viene así
+      const cdataMatch = responseText.match(/<!\[CDATA\[([\s\S]*?)\]\]>/);
+      if (cdataMatch) {
+        const tokenMatch = cdataMatch[1].match(/<token>([\s\S]*?)<\/token>/);
+        const signMatch = cdataMatch[1].match(/<sign>([\s\S]*?)<\/sign>/);
+        
+        if (tokenMatch && signMatch) {
+          return {
+            token: tokenMatch[1].trim(),
+            sign: signMatch[1].trim(),
+          };
+        }
+      }
+      
+      console.error('Respuesta WSAA completa:', responseText);
+      throw new Error('No se pudo extraer el loginTicketResponse de WSAA');
+    }
+
+    const tokenMatch = responseText.match(/<token>([\s\S]*?)<\/token>/);
+    const signMatch = responseText.match(/<sign>([\s\S]*?)<\/sign>/);
 
     if (!tokenMatch || !signMatch) {
+      console.error('No se encontró token/sign en:', responseText);
       throw new Error('No se pudo extraer token y sign de WSAA');
     }
 
+    console.log('Token y sign obtenidos correctamente');
+    
     return {
       token: tokenMatch[1].trim(),
       sign: signMatch[1].trim(),
@@ -130,6 +185,9 @@ async function consultarUltimoComprobante(
       ? 'https://servicios1.afip.gov.ar/wsfev1/service.asmx'
       : 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx';
 
+    console.log('Consultando WSFE:', wsfeUrl);
+    console.log('CUIT:', cuit, 'PtoVta:', puntoVenta, 'TipoCbte:', tipoComprobante);
+
     const soapBody = `<?xml version="1.0" encoding="UTF-8"?>
 <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:ar="http://ar.gov.afip.dif.FEV1/">
   <soap:Header/>
@@ -138,7 +196,7 @@ async function consultarUltimoComprobante(
       <ar:Auth>
         <ar:Token>${token}</ar:Token>
         <ar:Sign>${sign}</ar:Sign>
-        <ar:Cuit>${cuit}</ar:Cuit>
+        <ar:Cuit>${cuit.replace(/-/g, '')}</ar:Cuit>
       </ar:Auth>
       <ar:PtoVta>${puntoVenta}</ar:PtoVta>
       <ar:CbteTipo>${tipoComprobante}</ar:CbteTipo>
@@ -155,17 +213,23 @@ async function consultarUltimoComprobante(
       body: soapBody,
     });
 
+    const responseText = await response.text();
+    console.log('Respuesta WSFE status:', response.status);
+
     if (!response.ok) {
-      const errorText = await response.text();
+      console.error('Error WSFE response:', responseText);
       throw new Error(`Error en WSFE: ${response.status}`);
     }
 
-    const responseText = await response.text();
-    
     // Parsear respuesta SOAP
     const cbteNroMatch = responseText.match(/<CbteNro>(\d+)<\/CbteNro>/);
     
     if (!cbteNroMatch) {
+      // Verificar si hay errores en la respuesta
+      const errorMatch = responseText.match(/<Err>[\s\S]*?<Msg>([\s\S]*?)<\/Msg>[\s\S]*?<\/Err>/);
+      if (errorMatch) {
+        throw new Error(`Error AFIP: ${errorMatch[1]}`);
+      }
       console.error('Respuesta WSFE:', responseText);
       throw new Error('No se pudo extraer el número de comprobante de la respuesta');
     }
@@ -239,7 +303,7 @@ Deno.serve(async (req) => {
       afipConfig.certificado_crt,
       afipConfig.certificado_key,
       'wsfe',
-      afipConfig.ambiente
+      afipConfig.ambiente as 'homologacion' | 'produccion'
     );
 
     // Consultar último comprobante
@@ -250,7 +314,7 @@ Deno.serve(async (req) => {
       afipConfig.cuit_emisor,
       afipConfig.punto_venta,
       codigoComprobante,
-      afipConfig.ambiente
+      afipConfig.ambiente as 'homologacion' | 'produccion'
     );
 
     console.log('Último número autorizado:', ultimoNumero);
