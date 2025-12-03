@@ -6,45 +6,65 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Función para formatear fecha en formato AFIP (ISO 8601 sin milisegundos)
+function formatearFechaAFIP(fecha: Date): string {
+  const year = fecha.getUTCFullYear();
+  const month = String(fecha.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(fecha.getUTCDate()).padStart(2, '0');
+  const hours = String(fecha.getUTCHours()).padStart(2, '0');
+  const minutes = String(fecha.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(fecha.getUTCSeconds()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-03:00`;
+}
+
 // Función para crear el TRA (Ticket de Requerimiento de Acceso)
 function crearTRA(service: string): string {
   const ahora = new Date();
-  const generationTime = new Date(ahora.getTime() - 10 * 60000);
-  const expirationTime = new Date(ahora.getTime() + 10 * 60000);
-  const uniqueId = Date.now();
+  const generationTime = new Date(ahora.getTime() - 10 * 60000); // 10 minutos antes
+  const expirationTime = new Date(ahora.getTime() + 10 * 60000); // 10 minutos después
+  const uniqueId = Math.floor(Date.now() / 1000); // Timestamp en segundos
   
-  return `<?xml version="1.0" encoding="UTF-8"?>
+  const tra = `<?xml version="1.0" encoding="UTF-8"?>
 <loginTicketRequest version="1.0">
-  <header>
-    <uniqueId>${uniqueId}</uniqueId>
-    <generationTime>${generationTime.toISOString()}</generationTime>
-    <expirationTime>${expirationTime.toISOString()}</expirationTime>
-  </header>
-  <service>${service}</service>
+<header>
+<uniqueId>${uniqueId}</uniqueId>
+<generationTime>${formatearFechaAFIP(generationTime)}</generationTime>
+<expirationTime>${formatearFechaAFIP(expirationTime)}</expirationTime>
+</header>
+<service>${service}</service>
 </loginTicketRequest>`;
+  
+  return tra;
 }
 
 // Función para firmar el TRA usando PKCS#7/CMS
 function firmarTRA(tra: string, certPem: string, keyPem: string): string {
   try {
     console.log('Iniciando firma del TRA...');
+    console.log('TRA a firmar:', tra);
+    
+    // Normalizar los saltos de línea en los certificados
+    const certNormalized = certPem.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const keyNormalized = keyPem.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     
     // Parsear certificado y clave privada
-    const certificate = forge.pki.certificateFromPem(certPem);
-    const privateKey = forge.pki.privateKeyFromPem(keyPem);
+    const certificate = forge.pki.certificateFromPem(certNormalized);
+    const privateKey = forge.pki.privateKeyFromPem(keyNormalized);
     
-    console.log('Certificado y clave privada parseados correctamente');
+    console.log('Certificado CN:', certificate.subject.getField('CN')?.value);
+    console.log('Certificado válido hasta:', certificate.validity.notAfter);
     
     // Crear el mensaje PKCS#7 firmado
     const p7 = forge.pkcs7.createSignedData();
     
-    // Agregar el contenido (TRA)
+    // Agregar el contenido (TRA como bytes)
     p7.content = forge.util.createBuffer(tra, 'utf8');
     
     // Agregar el certificado del firmante
     p7.addCertificate(certificate);
     
-    // Agregar el firmante
+    // Agregar el firmante con SHA-256
     p7.addSigner({
       key: privateKey,
       certificate: certificate,
@@ -92,7 +112,7 @@ async function obtenerTokenYSign(
 ): Promise<{ token: string; sign: string }> {
   try {
     const tra = crearTRA(service);
-    console.log('TRA creado:', tra.substring(0, 200) + '...');
+    console.log('TRA creado');
     
     const cms = firmarTRA(tra, certPem, keyPem);
     
@@ -102,14 +122,15 @@ async function obtenerTokenYSign(
     
     console.log('Enviando request a WSAA:', wsaaUrl);
     
+    // SOAP request para WSAA - el CMS va directamente en in0
     const soapRequest = `<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wsaa="http://wsaa.view.sua.dvadac.desein.afip.gov">
-  <soapenv:Header/>
-  <soapenv:Body>
-    <wsaa:loginCms>
-      <wsaa:in0>${cms}</wsaa:in0>
-    </wsaa:loginCms>
-  </soapenv:Body>
+<soapenv:Header/>
+<soapenv:Body>
+<wsaa:loginCms>
+<wsaa:in0>${cms}</wsaa:in0>
+</wsaa:loginCms>
+</soapenv:Body>
 </soapenv:Envelope>`;
     
     const response = await fetch(wsaaUrl, {
@@ -123,39 +144,39 @@ async function obtenerTokenYSign(
 
     const responseText = await response.text();
     console.log('Respuesta WSAA status:', response.status);
+    console.log('Respuesta WSAA (primeros 500 chars):', responseText.substring(0, 500));
     
     if (!response.ok) {
-      console.error('Error WSAA response:', responseText);
+      console.error('Error WSAA response completa:', responseText);
       throw new Error(`Error en WSAA: ${response.status} - ${responseText}`);
     }
 
-    // Extraer el loginTicketResponse del CDATA
-    const loginTicketMatch = responseText.match(/<loginTicketResponse[^>]*>([\s\S]*?)<\/loginTicketResponse>/);
+    // Buscar el loginTicketResponse en la respuesta
+    // Puede venir como CDATA o directamente
+    let xmlContent = responseText;
     
-    if (!loginTicketMatch) {
-      // Intentar extraer del CDATA si viene así
-      const cdataMatch = responseText.match(/<!\[CDATA\[([\s\S]*?)\]\]>/);
-      if (cdataMatch) {
-        const tokenMatch = cdataMatch[1].match(/<token>([\s\S]*?)<\/token>/);
-        const signMatch = cdataMatch[1].match(/<sign>([\s\S]*?)<\/sign>/);
-        
-        if (tokenMatch && signMatch) {
-          return {
-            token: tokenMatch[1].trim(),
-            sign: signMatch[1].trim(),
-          };
-        }
-      }
-      
-      console.error('Respuesta WSAA completa:', responseText);
-      throw new Error('No se pudo extraer el loginTicketResponse de WSAA');
+    // Si viene como CDATA, extraerlo
+    const cdataMatch = responseText.match(/<!\[CDATA\[([\s\S]*?)\]\]>/);
+    if (cdataMatch) {
+      xmlContent = cdataMatch[1];
+    }
+    
+    // También puede venir escapado en el return
+    const returnMatch = responseText.match(/<loginCmsReturn[^>]*>([\s\S]*?)<\/loginCmsReturn>/);
+    if (returnMatch) {
+      // Decodificar entidades HTML si es necesario
+      xmlContent = returnMatch[1]
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"');
     }
 
-    const tokenMatch = responseText.match(/<token>([\s\S]*?)<\/token>/);
-    const signMatch = responseText.match(/<sign>([\s\S]*?)<\/sign>/);
+    const tokenMatch = xmlContent.match(/<token>([\s\S]*?)<\/token>/);
+    const signMatch = xmlContent.match(/<sign>([\s\S]*?)<\/sign>/);
 
     if (!tokenMatch || !signMatch) {
-      console.error('No se encontró token/sign en:', responseText);
+      console.error('No se encontró token/sign en:', xmlContent);
       throw new Error('No se pudo extraer token y sign de WSAA');
     }
 
@@ -185,23 +206,26 @@ async function consultarUltimoComprobante(
       ? 'https://servicios1.afip.gov.ar/wsfev1/service.asmx'
       : 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx';
 
+    // Limpiar CUIT de guiones
+    const cuitLimpio = cuit.replace(/-/g, '');
+    
     console.log('Consultando WSFE:', wsfeUrl);
-    console.log('CUIT:', cuit, 'PtoVta:', puntoVenta, 'TipoCbte:', tipoComprobante);
+    console.log('CUIT:', cuitLimpio, 'PtoVta:', puntoVenta, 'TipoCbte:', tipoComprobante);
 
     const soapBody = `<?xml version="1.0" encoding="UTF-8"?>
 <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:ar="http://ar.gov.afip.dif.FEV1/">
-  <soap:Header/>
-  <soap:Body>
-    <ar:FECompUltimoAutorizado>
-      <ar:Auth>
-        <ar:Token>${token}</ar:Token>
-        <ar:Sign>${sign}</ar:Sign>
-        <ar:Cuit>${cuit.replace(/-/g, '')}</ar:Cuit>
-      </ar:Auth>
-      <ar:PtoVta>${puntoVenta}</ar:PtoVta>
-      <ar:CbteTipo>${tipoComprobante}</ar:CbteTipo>
-    </ar:FECompUltimoAutorizado>
-  </soap:Body>
+<soap:Header/>
+<soap:Body>
+<ar:FECompUltimoAutorizado>
+<ar:Auth>
+<ar:Token>${token}</ar:Token>
+<ar:Sign>${sign}</ar:Sign>
+<ar:Cuit>${cuitLimpio}</ar:Cuit>
+</ar:Auth>
+<ar:PtoVta>${puntoVenta}</ar:PtoVta>
+<ar:CbteTipo>${tipoComprobante}</ar:CbteTipo>
+</ar:FECompUltimoAutorizado>
+</soap:Body>
 </soap:Envelope>`;
 
     const response = await fetch(wsfeUrl, {
@@ -215,6 +239,7 @@ async function consultarUltimoComprobante(
 
     const responseText = await response.text();
     console.log('Respuesta WSFE status:', response.status);
+    console.log('Respuesta WSFE (primeros 500 chars):', responseText.substring(0, 500));
 
     if (!response.ok) {
       console.error('Error WSFE response:', responseText);
@@ -230,7 +255,7 @@ async function consultarUltimoComprobante(
       if (errorMatch) {
         throw new Error(`Error AFIP: ${errorMatch[1]}`);
       }
-      console.error('Respuesta WSFE:', responseText);
+      console.error('Respuesta WSFE completa:', responseText);
       throw new Error('No se pudo extraer el número de comprobante de la respuesta');
     }
 
@@ -257,7 +282,8 @@ Deno.serve(async (req) => {
       throw new Error('tipoComprobante es requerido');
     }
 
-    console.log('Consultando último comprobante para tipo:', tipoComprobante);
+    console.log('=== INICIO CONSULTA ULTIMO COMPROBANTE ===');
+    console.log('Tipo comprobante:', tipoComprobante);
 
     // Obtener configuración AFIP activa
     const { data: afipConfig, error: configError } = await supabase
@@ -271,6 +297,10 @@ Deno.serve(async (req) => {
     if (configError || !afipConfig) {
       throw new Error('No hay configuración AFIP activa');
     }
+
+    console.log('Config AFIP encontrada, ambiente:', afipConfig.ambiente);
+    console.log('Punto de venta:', afipConfig.punto_venta);
+    console.log('CUIT:', afipConfig.cuit_emisor);
 
     if (!afipConfig.certificado_crt || !afipConfig.certificado_key) {
       throw new Error('Los certificados no están configurados');
@@ -297,6 +327,8 @@ Deno.serve(async (req) => {
       throw new Error(`Tipo de comprobante no válido: ${tipoComprobante}`);
     }
 
+    console.log('Código comprobante AFIP:', codigoComprobante);
+
     // Obtener token y sign
     console.log('Obteniendo token y sign de WSAA...');
     const { token, sign } = await obtenerTokenYSign(
@@ -318,6 +350,7 @@ Deno.serve(async (req) => {
     );
 
     console.log('Último número autorizado:', ultimoNumero);
+    console.log('=== FIN CONSULTA ULTIMO COMPROBANTE ===');
 
     return new Response(
       JSON.stringify({
