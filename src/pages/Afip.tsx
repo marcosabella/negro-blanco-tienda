@@ -38,6 +38,14 @@ const Afip = () => {
     puntoVenta?: number;
     tipoComprobante?: string;
     ambiente?: string;
+    fechaEmision?: string;
+    importeTotal?: number;
+    importeNeto?: number;
+    importeIVA?: number;
+    cuitReceptor?: string;
+    tipoDocReceptor?: number;
+    cae?: string;
+    caeVencimiento?: string;
   } | null>(null);
 
   const inputCrtRef = useRef<HTMLInputElement>(null);
@@ -433,14 +441,14 @@ const Afip = () => {
         )}
 
         <Dialog open={showResultDialog} onOpenChange={setShowResultDialog}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <CheckCircle className="h-5 w-5 text-green-500" />
                 Resultado de Consulta AFIP
               </DialogTitle>
               <DialogDescription>
-                Último comprobante autorizado
+                Detalles del último comprobante autorizado
               </DialogDescription>
             </DialogHeader>
             
@@ -468,12 +476,62 @@ const Afip = () => {
                   </div>
                 </div>
                 
-                <div className="text-center pt-2">
+                <div className="text-center pt-2 border-t">
                   <p className="text-sm text-muted-foreground">Tipo de Comprobante</p>
                   <p className="text-base font-medium">
                     {TIPOS_COMPROBANTE.find(t => t.value === resultadoConsulta.tipoComprobante)?.label || resultadoConsulta.tipoComprobante}
                   </p>
                 </div>
+
+                {resultadoConsulta.ultimoNumero && resultadoConsulta.ultimoNumero > 0 && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                      {resultadoConsulta.importeTotal !== undefined && (
+                        <div className="text-center">
+                          <p className="text-sm text-muted-foreground">Importe Total</p>
+                          <p className="text-xl font-bold text-green-600">
+                            ${resultadoConsulta.importeTotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                      )}
+                      {resultadoConsulta.cuitReceptor && (
+                        <div className="text-center">
+                          <p className="text-sm text-muted-foreground">
+                            {resultadoConsulta.tipoDocReceptor === 80 ? 'CUIT Receptor' : 
+                             resultadoConsulta.tipoDocReceptor === 96 ? 'DNI Receptor' : 
+                             resultadoConsulta.tipoDocReceptor === 99 ? 'Consumidor Final' : 'Doc. Receptor'}
+                          </p>
+                          <p className="text-lg font-semibold">
+                            {resultadoConsulta.cuitReceptor === '0' ? 'Sin identificar' : resultadoConsulta.cuitReceptor}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {resultadoConsulta.fechaEmision && (
+                      <div className="grid grid-cols-2 gap-4 pt-2">
+                        <div className="text-center">
+                          <p className="text-sm text-muted-foreground">Fecha Emisión</p>
+                          <p className="text-base font-medium">{resultadoConsulta.fechaEmision}</p>
+                        </div>
+                        {resultadoConsulta.cae && (
+                          <div className="text-center">
+                            <p className="text-sm text-muted-foreground">CAE</p>
+                            <p className="text-sm font-mono">{resultadoConsulta.cae}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {resultadoConsulta.ultimoNumero === 0 && (
+                  <div className="text-center pt-4 border-t">
+                    <p className="text-sm text-muted-foreground italic">
+                      No hay comprobantes emitidos de este tipo
+                    </p>
+                  </div>
+                )}
               </div>
             )}
             

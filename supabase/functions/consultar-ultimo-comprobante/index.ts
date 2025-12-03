@@ -214,7 +214,7 @@ async function consultarUltimoComprobante(
     // Limpiar CUIT de guiones
     const cuitLimpio = cuit.replace(/-/g, '');
     
-    console.log('Consultando WSFE:', wsfeUrl);
+    console.log('Consultando WSFE FECompUltimoAutorizado:', wsfeUrl);
     console.log('CUIT:', cuitLimpio, 'PtoVta:', puntoVenta, 'TipoCbte:', tipoComprobante);
 
     const soapBody = `<?xml version="1.0" encoding="UTF-8"?>
@@ -268,6 +268,144 @@ async function consultarUltimoComprobante(
   } catch (error) {
     console.error('Error en consultarUltimoComprobante:', error);
     throw error;
+  }
+}
+
+// Interfaz para los detalles del comprobante
+interface DetallesComprobante {
+  fechaEmision?: string;
+  importeTotal?: number;
+  importeNeto?: number;
+  importeIVA?: number;
+  cuitReceptor?: string;
+  tipoDocReceptor?: number;
+  cae?: string;
+  caeVencimiento?: string;
+}
+
+// Función para consultar detalles de un comprobante específico
+async function consultarDetalleComprobante(
+  token: string,
+  sign: string,
+  cuit: string,
+  puntoVenta: number,
+  tipoComprobante: number,
+  numeroComprobante: number,
+  ambiente: 'homologacion' | 'produccion'
+): Promise<DetallesComprobante> {
+  try {
+    // Si el número es 0, no hay comprobantes emitidos
+    if (numeroComprobante === 0) {
+      console.log('No hay comprobantes emitidos para consultar detalles');
+      return {};
+    }
+
+    const wsfeUrl = ambiente === 'produccion'
+      ? 'https://servicios1.afip.gov.ar/wsfev1/service.asmx'
+      : 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx';
+
+    // Limpiar CUIT de guiones
+    const cuitLimpio = cuit.replace(/-/g, '');
+    
+    console.log('Consultando WSFE FECompConsultar:', wsfeUrl);
+    console.log('CUIT:', cuitLimpio, 'PtoVta:', puntoVenta, 'TipoCbte:', tipoComprobante, 'CbteNro:', numeroComprobante);
+
+    const soapBody = `<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:ar="http://ar.gov.afip.dif.FEV1/">
+<soap:Header/>
+<soap:Body>
+<ar:FECompConsultar>
+<ar:Auth>
+<ar:Token>${token}</ar:Token>
+<ar:Sign>${sign}</ar:Sign>
+<ar:Cuit>${cuitLimpio}</ar:Cuit>
+</ar:Auth>
+<ar:FeCompConsReq>
+<ar:CbteTipo>${tipoComprobante}</ar:CbteTipo>
+<ar:CbteNro>${numeroComprobante}</ar:CbteNro>
+<ar:PtoVta>${puntoVenta}</ar:PtoVta>
+</ar:FeCompConsReq>
+</ar:FECompConsultar>
+</soap:Body>
+</soap:Envelope>`;
+
+    const response = await fetch(wsfeUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/soap+xml; charset=utf-8',
+        'SOAPAction': 'http://ar.gov.afip.dif.FEV1/FECompConsultar',
+      },
+      body: soapBody,
+    });
+
+    const responseText = await response.text();
+    console.log('Respuesta FECompConsultar status:', response.status);
+    console.log('Respuesta FECompConsultar (primeros 1000 chars):', responseText.substring(0, 1000));
+
+    if (!response.ok) {
+      console.error('Error FECompConsultar response:', responseText);
+      throw new Error(`Error en FECompConsultar: ${response.status}`);
+    }
+
+    // Parsear los diferentes campos de la respuesta
+    const detalles: DetallesComprobante = {};
+
+    // Fecha de emisión (formato YYYYMMDD)
+    const fechaMatch = responseText.match(/<CbteFch>(\d+)<\/CbteFch>/);
+    if (fechaMatch) {
+      const fecha = fechaMatch[1];
+      detalles.fechaEmision = `${fecha.substring(0, 4)}-${fecha.substring(4, 6)}-${fecha.substring(6, 8)}`;
+    }
+
+    // Importe total
+    const importeTotalMatch = responseText.match(/<ImpTotal>([\d.]+)<\/ImpTotal>/);
+    if (importeTotalMatch) {
+      detalles.importeTotal = parseFloat(importeTotalMatch[1]);
+    }
+
+    // Importe neto
+    const importeNetoMatch = responseText.match(/<ImpNeto>([\d.]+)<\/ImpNeto>/);
+    if (importeNetoMatch) {
+      detalles.importeNeto = parseFloat(importeNetoMatch[1]);
+    }
+
+    // Importe IVA
+    const importeIVAMatch = responseText.match(/<ImpIVA>([\d.]+)<\/ImpIVA>/);
+    if (importeIVAMatch) {
+      detalles.importeIVA = parseFloat(importeIVAMatch[1]);
+    }
+
+    // CUIT/DNI del receptor
+    const docNroMatch = responseText.match(/<DocNro>(\d+)<\/DocNro>/);
+    if (docNroMatch) {
+      detalles.cuitReceptor = docNroMatch[1];
+    }
+
+    // Tipo de documento del receptor
+    const docTipoMatch = responseText.match(/<DocTipo>(\d+)<\/DocTipo>/);
+    if (docTipoMatch) {
+      detalles.tipoDocReceptor = parseInt(docTipoMatch[1], 10);
+    }
+
+    // CAE
+    const caeMatch = responseText.match(/<CodAutorizacion>(\d+)<\/CodAutorizacion>/);
+    if (caeMatch) {
+      detalles.cae = caeMatch[1];
+    }
+
+    // CAE Vencimiento
+    const caeVtoMatch = responseText.match(/<FchVto>(\d+)<\/FchVto>/);
+    if (caeVtoMatch) {
+      const fecha = caeVtoMatch[1];
+      detalles.caeVencimiento = `${fecha.substring(0, 4)}-${fecha.substring(4, 6)}-${fecha.substring(6, 8)}`;
+    }
+
+    console.log('Detalles extraídos:', detalles);
+    return detalles;
+  } catch (error) {
+    console.error('Error en consultarDetalleComprobante:', error);
+    // No lanzamos el error, solo retornamos vacío para que no falle la consulta principal
+    return {};
   }
 }
 
@@ -355,6 +493,19 @@ Deno.serve(async (req) => {
     );
 
     console.log('Último número autorizado:', ultimoNumero);
+
+    // Consultar detalles del último comprobante
+    console.log('Consultando detalles del comprobante...');
+    const detalles = await consultarDetalleComprobante(
+      token,
+      sign,
+      afipConfig.cuit_emisor,
+      afipConfig.punto_venta,
+      codigoComprobante,
+      ultimoNumero,
+      afipConfig.ambiente as 'homologacion' | 'produccion'
+    );
+
     console.log('=== FIN CONSULTA ULTIMO COMPROBANTE ===');
 
     return new Response(
@@ -364,6 +515,15 @@ Deno.serve(async (req) => {
         puntoVenta: afipConfig.punto_venta,
         tipoComprobante,
         ambiente: afipConfig.ambiente,
+        // Detalles del comprobante
+        fechaEmision: detalles.fechaEmision,
+        importeTotal: detalles.importeTotal,
+        importeNeto: detalles.importeNeto,
+        importeIVA: detalles.importeIVA,
+        cuitReceptor: detalles.cuitReceptor,
+        tipoDocReceptor: detalles.tipoDocReceptor,
+        cae: detalles.cae,
+        caeVencimiento: detalles.caeVencimiento,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
