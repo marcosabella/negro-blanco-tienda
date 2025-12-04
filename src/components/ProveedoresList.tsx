@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useProveedores, useDeleteProveedor, type Proveedor } from '@/hooks/useProveedores';
 import { ProveedorForm } from './ProveedorForm';
 
@@ -41,6 +42,12 @@ export function ProveedoresList() {
   const handleEditSuccess = () => {
     setIsEditDialogOpen(false);
     setSelectedProveedor(null);
+  };
+
+  const getProveedorNombre = (proveedor: Proveedor) => {
+    return proveedor.tipo_persona === 'juridica'
+      ? proveedor.razon_social
+      : `${proveedor.nombre} ${proveedor.apellido || ''}`.trim();
   };
 
   if (isLoading) {
@@ -107,121 +114,96 @@ export function ProveedoresList() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
-          {filteredProveedores.map((proveedor) => (
-            <Card key={proveedor.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-4 mb-3">
-                      <h3 className="text-lg font-semibold">
-                        {proveedor.tipo_persona === 'juridica'
-                          ? proveedor.razon_social
-                          : `${proveedor.nombre} ${proveedor.apellido || ''}`.trim()
-                        }
-                      </h3>
-                      <Badge variant="secondary">
-                        {proveedor.tipo_persona === 'fisica' ? 'Persona Física' : 'Persona Jurídica'}
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nombre / Razón Social</TableHead>
+                  <TableHead>CUIT</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Situación AFIP</TableHead>
+                  <TableHead>Localidad</TableHead>
+                  <TableHead>Teléfono</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredProveedores.map((proveedor) => (
+                  <TableRow key={proveedor.id}>
+                    <TableCell className="font-medium">
+                      {getProveedorNombre(proveedor)}
+                    </TableCell>
+                    <TableCell>{proveedor.cuit}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="whitespace-nowrap">
+                        {proveedor.tipo_persona === 'fisica' ? 'Física' : 'Jurídica'}
                       </Badge>
-                    </div>
+                    </TableCell>
+                    <TableCell>{proveedor.situacion_afip}</TableCell>
+                    <TableCell>{proveedor.localidad}</TableCell>
+                    <TableCell>{proveedor.telefono || '-'}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Dialog open={isEditDialogOpen && selectedProveedor?.id === proveedor.id} onOpenChange={(open) => {
+                          setIsEditDialogOpen(open);
+                          if (!open) setSelectedProveedor(null);
+                        }}>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEdit(proveedor)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                            <DialogHeader>
+                              <DialogTitle>Editar Proveedor</DialogTitle>
+                            </DialogHeader>
+                            {selectedProveedor && (
+                              <ProveedorForm
+                                proveedor={selectedProveedor}
+                                onSuccess={handleEditSuccess}
+                              />
+                            )}
+                          </DialogContent>
+                        </Dialog>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <span className="font-medium text-muted-foreground">CUIT:</span>
-                        <p>{proveedor.cuit}</p>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>¿Eliminar proveedor?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Esta acción no se puede deshacer. Se eliminará permanentemente
+                                la información de {getProveedorNombre(proveedor)}.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => proveedor.id && handleDelete(proveedor.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Eliminar
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
-
-                      <div>
-                        <span className="font-medium text-muted-foreground">Dirección:</span>
-                        <p>{proveedor.calle} {proveedor.numero}, {proveedor.localidad}</p>
-                      </div>
-
-                      <div>
-                        <span className="font-medium text-muted-foreground">Situación AFIP:</span>
-                        <p>{proveedor.situacion_afip}</p>
-                      </div>
-
-                      {proveedor.telefono && (
-                        <div>
-                          <span className="font-medium text-muted-foreground">Teléfono:</span>
-                          <p>{proveedor.telefono}</p>
-                        </div>
-                      )}
-
-                      {proveedor.email && (
-                        <div>
-                          <span className="font-medium text-muted-foreground">Email:</span>
-                          <p>{proveedor.email}</p>
-                        </div>
-                      )}
-
-                      <div>
-                        <span className="font-medium text-muted-foreground">Provincia:</span>
-                        <p>{proveedor.provincia}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Dialog open={isEditDialogOpen && selectedProveedor?.id === proveedor.id} onOpenChange={(open) => {
-                      setIsEditDialogOpen(open);
-                      if (!open) setSelectedProveedor(null);
-                    }}>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(proveedor)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                        <DialogHeader>
-                          <DialogTitle>Editar Proveedor</DialogTitle>
-                        </DialogHeader>
-                        {selectedProveedor && (
-                          <ProveedorForm
-                            proveedor={selectedProveedor}
-                            onSuccess={handleEditSuccess}
-                          />
-                        )}
-                      </DialogContent>
-                    </Dialog>
-
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>¿Eliminar proveedor?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Esta acción no se puede deshacer. Se eliminará permanentemente
-                            la información de {proveedor.tipo_persona === 'juridica'
-                              ? proveedor.razon_social
-                              : `${proveedor.nombre} ${proveedor.apellido || ''}`.trim()}.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => proveedor.id && handleDelete(proveedor.id)}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Eliminar
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
