@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useClientes, useDeleteCliente } from '@/hooks/useClientes';
 import { ClienteForm } from './ClienteForm';
 import { Cliente } from '@/types/cliente';
@@ -19,7 +20,6 @@ export function ClientesList() {
   const { data: clientes = [], isLoading } = useClientes();
   const deleteCliente = useDeleteCliente();
 
-  // Filter clients based on search term
   const filteredClientes = clientes.filter((cliente) =>
     `${cliente.nombre} ${cliente.apellido} ${cliente.cuit}`
       .toLowerCase()
@@ -108,116 +108,96 @@ export function ClientesList() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
-          {filteredClientes.map((cliente) => (
-            <Card key={cliente.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-4 mb-3">
-                      <h3 className="text-lg font-semibold">
-                        {cliente.nombre} {cliente.apellido}
-                      </h3>
-                      <Badge variant="secondary">
-                        {cliente.tipo_persona === 'fisica' ? 'Persona Física' : 'Persona Jurídica'}
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>CUIT</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Situación AFIP</TableHead>
+                  <TableHead>Localidad</TableHead>
+                  <TableHead>Teléfono</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredClientes.map((cliente) => (
+                  <TableRow key={cliente.id}>
+                    <TableCell className="font-medium">
+                      {cliente.nombre} {cliente.apellido}
+                    </TableCell>
+                    <TableCell>{cliente.cuit}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="whitespace-nowrap">
+                        {cliente.tipo_persona === 'fisica' ? 'Física' : 'Jurídica'}
                       </Badge>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <span className="font-medium text-muted-foreground">CUIT:</span>
-                        <p>{cliente.cuit}</p>
+                    </TableCell>
+                    <TableCell>{cliente.situacion_afip}</TableCell>
+                    <TableCell>{cliente.localidad}</TableCell>
+                    <TableCell>{cliente.telefono || '-'}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Dialog open={isEditDialogOpen && selectedCliente?.id === cliente.id} onOpenChange={(open) => {
+                          setIsEditDialogOpen(open);
+                          if (!open) setSelectedCliente(null);
+                        }}>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEdit(cliente)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                            <DialogHeader>
+                              <DialogTitle>Editar Cliente</DialogTitle>
+                            </DialogHeader>
+                            {selectedCliente && (
+                              <ClienteForm 
+                                cliente={selectedCliente} 
+                                onSuccess={handleEditSuccess} 
+                              />
+                            )}
+                          </DialogContent>
+                        </Dialog>
+                        
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>¿Eliminar cliente?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Esta acción no se puede deshacer. Se eliminará permanentemente
+                                la información de {cliente.nombre} {cliente.apellido}.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => cliente.id && handleDelete(cliente.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Eliminar
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
-                      
-                      <div>
-                        <span className="font-medium text-muted-foreground">Dirección:</span>
-                        <p>{cliente.calle} {cliente.numero}, {cliente.localidad}</p>
-                      </div>
-                      
-                      <div>
-                        <span className="font-medium text-muted-foreground">Situación AFIP:</span>
-                        <p>{cliente.situacion_afip}</p>
-                      </div>
-                      
-                      {cliente.telefono && (
-                        <div>
-                          <span className="font-medium text-muted-foreground">Teléfono:</span>
-                          <p>{cliente.telefono}</p>
-                        </div>
-                      )}
-                      
-                      {cliente.email && (
-                        <div>
-                          <span className="font-medium text-muted-foreground">Email:</span>
-                          <p>{cliente.email}</p>
-                        </div>
-                      )}
-                      
-                      <div>
-                        <span className="font-medium text-muted-foreground">Provincia:</span>
-                        <p>{cliente.provincia}</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Dialog open={isEditDialogOpen && selectedCliente?.id === cliente.id} onOpenChange={(open) => {
-                      setIsEditDialogOpen(open);
-                      if (!open) setSelectedCliente(null);
-                    }}>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(cliente)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                        <DialogHeader>
-                          <DialogTitle>Editar Cliente</DialogTitle>
-                        </DialogHeader>
-                        {selectedCliente && (
-                          <ClienteForm 
-                            cliente={selectedCliente} 
-                            onSuccess={handleEditSuccess} 
-                          />
-                        )}
-                      </DialogContent>
-                    </Dialog>
-                    
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>¿Eliminar cliente?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Esta acción no se puede deshacer. Se eliminará permanentemente
-                            la información de {cliente.nombre} {cliente.apellido}.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => cliente.id && handleDelete(cliente.id)}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Eliminar
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
