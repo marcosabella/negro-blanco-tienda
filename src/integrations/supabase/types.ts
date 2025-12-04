@@ -20,6 +20,8 @@ export type Database = {
           ambiente: string | null
           certificado_crt: string | null
           certificado_key: string | null
+          certificado_vencimiento: string | null
+          certificado_vigente: boolean | null
           created_at: string | null
           cuit_emisor: string | null
           id: string
@@ -33,6 +35,8 @@ export type Database = {
           ambiente?: string | null
           certificado_crt?: string | null
           certificado_key?: string | null
+          certificado_vencimiento?: string | null
+          certificado_vigente?: boolean | null
           created_at?: string | null
           cuit_emisor?: string | null
           id?: string
@@ -46,6 +50,8 @@ export type Database = {
           ambiente?: string | null
           certificado_crt?: string | null
           certificado_key?: string | null
+          certificado_vencimiento?: string | null
+          certificado_vigente?: boolean | null
           created_at?: string | null
           cuit_emisor?: string | null
           id?: string
