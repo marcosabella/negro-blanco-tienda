@@ -222,7 +222,10 @@ export function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
 
               <div className="space-y-2">
                 <Label htmlFor="provincia">Provincia</Label>
-                <Select onValueChange={(value) => setValue('provincia', value)}>
+                <Select 
+                  defaultValue={cliente?.provincia}
+                  onValueChange={(value) => setValue('provincia', value)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar provincia" />
                   </SelectTrigger>
@@ -275,7 +278,10 @@ export function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="situacion_afip">Situación AFIP</Label>
-                <Select onValueChange={(value) => setValue('situacion_afip', value)}>
+                <Select 
+                  defaultValue={cliente?.situacion_afip}
+                  onValueChange={(value) => setValue('situacion_afip', value)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar situación" />
                   </SelectTrigger>
