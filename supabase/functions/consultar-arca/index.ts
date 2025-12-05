@@ -24,19 +24,6 @@ interface ArcaResponse {
   error?: string;
 }
 
-// Mapeo de códigos de categoría AFIP a nombres
-const CATEGORIAS_AFIP: Record<string, string> = {
-  'AC': 'Responsable Inscripto',
-  'RI': 'Responsable Inscripto',
-  'CF': 'Consumidor Final',
-  'EX': 'Exento',
-  'RS': 'Monotributista',
-  'MT': 'Monotributista',
-  'NR': 'No Responsable',
-  'NA': 'No Alcanzado',
-  'NC': 'No Categorizado',
-};
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -63,140 +50,81 @@ serve(async (req) => {
       );
     }
 
-    // Consultar API pública de ARCA/AFIP (usando servicio de terceros confiable)
-    // Usamos la API de AFIP Constancia de Inscripción
-    const response = await fetch(
-      `https://afip.tangofactura.com/Rest/GetContribuyenteFull?cuit=${cuitLimpio}`,
-      {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-      }
-    );
+    console.log(`Consultando CUIT: ${cuitLimpio}`);
 
-    if (!response.ok) {
-      // Si falla el primer servicio, intentar con alternativa
-      const altResponse = await fetch(
-        `https://soa.afip.gob.ar/sr-padron/v2/persona/${cuitLimpio}`,
+    // Intentar con API pública de cuitonline
+    let data = null;
+    let apiError = null;
+
+    try {
+      const response = await fetch(
+        `https://cuitonline.com/search.php?q=${cuitLimpio}`,
         {
           method: 'GET',
           headers: {
-            'Accept': 'application/json',
+            'Accept': 'text/html,application/xhtml+xml',
+            'User-Agent': 'Mozilla/5.0 (compatible; AFIP-Consulta/1.0)',
           },
         }
       );
 
-      if (!altResponse.ok) {
-        return new Response(
-          JSON.stringify({ success: false, error: "No se pudo consultar ARCA. Intente nuevamente." }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-        );
+      if (response.ok) {
+        const html = await response.text();
+        data = parseHtmlResponse(html, cuitLimpio);
       }
-
-      const altData = await altResponse.json();
-      
-      if (altData.success === false || !altData.data) {
-        return new Response(
-          JSON.stringify({ success: false, error: "CUIT no encontrado en ARCA" }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
-        );
-      }
-
-      const persona = altData.data;
-      const esJuridica = persona.tipoClave === 'CUIT' && persona.tipoPersona === 'JURIDICA';
-
-      const result: ArcaResponse = {
-        success: true,
-        data: {
-          nombre: esJuridica ? (persona.razonSocial || '') : (persona.nombre || ''),
-          apellido: esJuridica ? '' : (persona.apellido || ''),
-          razonSocial: persona.razonSocial,
-          tipoPersona: esJuridica ? 'juridica' : 'fisica',
-          situacionAfip: mapearSituacionAfip(persona.estadoClave),
-          domicilioFiscal: persona.domicilioFiscal ? {
-            calle: persona.domicilioFiscal.direccion,
-            localidad: persona.domicilioFiscal.localidad,
-            provincia: mapearProvincia(persona.domicilioFiscal.idProvincia),
-            codigoPostal: persona.domicilioFiscal.codPostal,
-          } : undefined,
-        },
-      };
-
-      return new Response(
-        JSON.stringify(result),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    } catch (e) {
+      console.log("Error con cuitonline:", e);
+      apiError = e;
     }
 
-    const data = await response.json();
+    // Si no funcionó, intentar con datosabiertos
+    if (!data) {
+      try {
+        const response = await fetch(
+          `https://www.datosabiertos.gob.ar/api/3/action/datastore_search?resource_id=8f6e3d82-c3de-4d68-8b22-4d3e30c64ad5&q=${cuitLimpio}`,
+          {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+            },
+          }
+        );
 
-    if (!data || data.errorGetData) {
+        if (response.ok) {
+          const jsonData = await response.json();
+          if (jsonData.success && jsonData.result?.records?.length > 0) {
+            const record = jsonData.result.records[0];
+            data = {
+              nombre: record.nombre || '',
+              apellido: record.apellido || '',
+              tipoPersona: record.tipo_persona === 'JURIDICA' ? 'juridica' : 'fisica',
+              situacionAfip: mapearSituacionFromCategoria(record.categoria),
+            };
+          }
+        }
+      } catch (e) {
+        console.log("Error con datosabiertos:", e);
+      }
+    }
+
+    // Si aún no hay datos, retornar error pero permitir ingreso manual
+    if (!data) {
+      console.log("No se pudieron obtener datos de ARCA");
       return new Response(
-        JSON.stringify({ success: false, error: data.errorMessage || "CUIT no encontrado en ARCA" }),
+        JSON.stringify({ 
+          success: false, 
+          error: "No se encontraron datos para este CUIT. Por favor ingrese los datos manualmente." 
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
       );
     }
 
-    // Determinar tipo de persona
-    const esJuridica = data.tipoPersona === 'JURIDICA' || 
-                       (data.tipoClave === '80' || cuitLimpio.startsWith('30') || cuitLimpio.startsWith('33'));
-
-    // Mapear situación AFIP
-    let situacionAfip = 'Consumidor Final';
-    if (data.impuestos && Array.isArray(data.impuestos)) {
-      const tieneIVA = data.impuestos.some((i: any) => i.idImpuesto === 30 || i.idImpuesto === 32);
-      const tieneMonotributo = data.impuestos.some((i: any) => i.idImpuesto === 20);
-      
-      if (tieneIVA) {
-        situacionAfip = 'Responsable Inscripto';
-      } else if (tieneMonotributo) {
-        situacionAfip = 'Monotributista';
-      } else if (data.categoriasMonotributo && data.categoriasMonotributo.length > 0) {
-        situacionAfip = 'Monotributista';
-      }
-    }
-
-    // Extraer nombre y apellido
-    let nombre = '';
-    let apellido = '';
-    
-    if (esJuridica) {
-      nombre = data.razonSocial || data.nombre || '';
-      apellido = '';
-    } else {
-      if (data.nombre) {
-        const partes = data.nombre.split(' ');
-        if (data.apellido) {
-          nombre = data.nombre;
-          apellido = data.apellido;
-        } else if (partes.length > 1) {
-          apellido = partes[0];
-          nombre = partes.slice(1).join(' ');
-        } else {
-          nombre = data.nombre;
-          apellido = '';
-        }
-      }
-    }
-
     const result: ArcaResponse = {
       success: true,
-      data: {
-        nombre,
-        apellido,
-        razonSocial: data.razonSocial,
-        tipoPersona: esJuridica ? 'juridica' : 'fisica',
-        situacionAfip,
-        domicilioFiscal: data.domicilioFiscal ? {
-          calle: data.domicilioFiscal.calle || data.domicilioFiscal.direccion,
-          numero: data.domicilioFiscal.numero,
-          localidad: data.domicilioFiscal.localidad,
-          provincia: mapearProvincia(data.domicilioFiscal.idProvincia || data.domicilioFiscal.provincia),
-          codigoPostal: data.domicilioFiscal.codigoPostal || data.domicilioFiscal.codPostal,
-        } : undefined,
-      },
+      data: data,
     };
+
+    console.log("Datos obtenidos:", JSON.stringify(result));
 
     return new Response(
       JSON.stringify(result),
@@ -206,48 +134,83 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error consultando ARCA:", error);
     return new Response(
-      JSON.stringify({ success: false, error: "Error interno del servidor" }),
+      JSON.stringify({ success: false, error: "Error interno del servidor. Ingrese los datos manualmente." }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }
 });
 
-function mapearSituacionAfip(estado: string): string {
-  const mapeo: Record<string, string> = {
-    'ACTIVO': 'Responsable Inscripto',
-    'ACTIVA': 'Responsable Inscripto',
-    'INACTIVO': 'Consumidor Final',
-    'INACTIVA': 'Consumidor Final',
-  };
-  return mapeo[estado?.toUpperCase()] || 'Consumidor Final';
+function parseHtmlResponse(html: string, cuit: string): any | null {
+  try {
+    // Buscar el nombre/razón social en el HTML
+    const nombreMatch = html.match(/class="denomination"[^>]*>([^<]+)</i) ||
+                       html.match(/Razón Social[^:]*:\s*([^<\n]+)/i) ||
+                       html.match(/Denominación[^:]*:\s*([^<\n]+)/i);
+    
+    if (!nombreMatch) {
+      return null;
+    }
+
+    const nombreCompleto = nombreMatch[1].trim();
+    
+    // Determinar tipo de persona por el prefijo del CUIT
+    const prefijo = cuit.substring(0, 2);
+    const esJuridica = ['30', '33', '34'].includes(prefijo);
+    
+    // Buscar situación fiscal
+    let situacionAfip = 'Consumidor Final';
+    if (html.includes('RESPONSABLE INSCRIPTO') || html.includes('Responsable Inscripto')) {
+      situacionAfip = 'Responsable Inscripto';
+    } else if (html.includes('MONOTRIBUTO') || html.includes('Monotributo')) {
+      situacionAfip = 'Monotributista';
+    } else if (html.includes('EXENTO') || html.includes('Exento')) {
+      situacionAfip = 'Exento';
+    }
+
+    let nombre = '';
+    let apellido = '';
+
+    if (esJuridica) {
+      nombre = nombreCompleto;
+      apellido = '';
+    } else {
+      // Para personas físicas, separar apellido y nombre
+      const partes = nombreCompleto.split(/\s+/);
+      if (partes.length >= 2) {
+        // Generalmente viene como "APELLIDO NOMBRE"
+        apellido = partes[0];
+        nombre = partes.slice(1).join(' ');
+      } else {
+        nombre = nombreCompleto;
+        apellido = '';
+      }
+    }
+
+    return {
+      nombre,
+      apellido,
+      razonSocial: esJuridica ? nombreCompleto : undefined,
+      tipoPersona: esJuridica ? 'juridica' : 'fisica',
+      situacionAfip,
+    };
+  } catch (e) {
+    console.error("Error parseando HTML:", e);
+    return null;
+  }
 }
 
-function mapearProvincia(idProvincia: string | number): string {
-  const provincias: Record<string, string> = {
-    '0': 'Ciudad Autónoma de Buenos Aires',
-    '1': 'Buenos Aires',
-    '2': 'Catamarca',
-    '3': 'Córdoba',
-    '4': 'Corrientes',
-    '5': 'Entre Ríos',
-    '6': 'Jujuy',
-    '7': 'Mendoza',
-    '8': 'La Rioja',
-    '9': 'Salta',
-    '10': 'San Juan',
-    '11': 'San Luis',
-    '12': 'Santa Fe',
-    '13': 'Santiago del Estero',
-    '14': 'Tucumán',
-    '15': 'Chaco',
-    '16': 'Chubut',
-    '17': 'Formosa',
-    '18': 'Misiones',
-    '19': 'Neuquén',
-    '20': 'La Pampa',
-    '21': 'Río Negro',
-    '22': 'Santa Cruz',
-    '23': 'Tierra del Fuego',
-  };
-  return provincias[String(idProvincia)] || '';
+function mapearSituacionFromCategoria(categoria: string): string {
+  if (!categoria) return 'Consumidor Final';
+  
+  const cat = categoria.toUpperCase();
+  if (cat.includes('RI') || cat.includes('RESPONSABLE INSCRIPTO')) {
+    return 'Responsable Inscripto';
+  }
+  if (cat.includes('MONO') || cat.includes('RS')) {
+    return 'Monotributista';
+  }
+  if (cat.includes('EX')) {
+    return 'Exento';
+  }
+  return 'Consumidor Final';
 }

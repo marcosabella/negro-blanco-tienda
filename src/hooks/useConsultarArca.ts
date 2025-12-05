@@ -38,13 +38,20 @@ export function useConsultarArca() {
       });
 
       if (error) {
-        throw error;
+        // Si hay error de función, mostrar mensaje amigable
+        console.error('Error de función:', error);
+        toast({
+          title: "Servicio no disponible",
+          description: "El servicio de ARCA no está disponible. Ingrese los datos manualmente.",
+          variant: "destructive",
+        });
+        return null;
       }
 
-      if (!data.success) {
+      if (!data || !data.success) {
         toast({
-          title: "Error",
-          description: data.error || "No se encontraron datos para el CUIT ingresado",
+          title: "CUIT no encontrado",
+          description: data?.error || "No se encontraron datos. Ingrese los datos manualmente.",
           variant: "destructive",
         });
         return null;
@@ -57,11 +64,11 @@ export function useConsultarArca() {
 
       return data.data as DatosArca;
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error consultando ARCA:', error);
       toast({
-        title: "Error",
-        description: "No se pudo consultar ARCA. Intente nuevamente.",
+        title: "Servicio no disponible",
+        description: "No se pudo conectar con ARCA. Ingrese los datos manualmente.",
         variant: "destructive",
       });
       return null;
