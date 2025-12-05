@@ -77,26 +77,16 @@ export function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
     
     if (datos) {
       setValue('tipo_persona', datos.tipoPersona);
-      setValue('nombre', datos.nombre);
-      setValue('apellido', datos.apellido || '');
-      setValue('situacion_afip', datos.situacionAfip);
+      if (datos.nombre) setValue('nombre', datos.nombre);
+      if (datos.apellido) setValue('apellido', datos.apellido);
+      if (datos.situacionAfip) setValue('situacion_afip', datos.situacionAfip);
       
       if (datos.domicilioFiscal) {
-        if (datos.domicilioFiscal.calle) {
-          setValue('calle', datos.domicilioFiscal.calle);
-        }
-        if (datos.domicilioFiscal.numero) {
-          setValue('numero', datos.domicilioFiscal.numero);
-        }
-        if (datos.domicilioFiscal.localidad) {
-          setValue('localidad', datos.domicilioFiscal.localidad);
-        }
-        if (datos.domicilioFiscal.provincia) {
-          setValue('provincia', datos.domicilioFiscal.provincia);
-        }
-        if (datos.domicilioFiscal.codigoPostal) {
-          setValue('codigo_postal', datos.domicilioFiscal.codigoPostal);
-        }
+        if (datos.domicilioFiscal.calle) setValue('calle', datos.domicilioFiscal.calle);
+        if (datos.domicilioFiscal.numero) setValue('numero', datos.domicilioFiscal.numero);
+        if (datos.domicilioFiscal.localidad) setValue('localidad', datos.domicilioFiscal.localidad);
+        if (datos.domicilioFiscal.provincia) setValue('provincia', datos.domicilioFiscal.provincia);
+        if (datos.domicilioFiscal.codigoPostal) setValue('codigo_postal', datos.domicilioFiscal.codigoPostal);
       }
     }
   };

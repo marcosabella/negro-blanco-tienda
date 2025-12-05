@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
 export interface DatosArca {
@@ -17,11 +16,21 @@ export interface DatosArca {
   };
 }
 
+// Detectar tipo de persona por prefijo del CUIT
+function detectarTipoPersona(cuit: string): 'fisica' | 'juridica' {
+  const cuitLimpio = cuit.replace(/[-\s]/g, '');
+  const prefijo = cuitLimpio.substring(0, 2);
+  // 30, 33, 34 son personas jurídicas
+  return ['30', '33', '34'].includes(prefijo) ? 'juridica' : 'fisica';
+}
+
 export function useConsultarArca() {
   const [isLoading, setIsLoading] = useState(false);
 
   const consultarCuit = async (cuit: string): Promise<DatosArca | null> => {
-    if (!cuit || cuit.replace(/[-\s]/g, '').length < 11) {
+    const cuitLimpio = cuit.replace(/[-\s]/g, '');
+    
+    if (!cuit || cuitLimpio.length < 11) {
       toast({
         title: "CUIT inválido",
         description: "Ingrese un CUIT válido de 11 dígitos",
@@ -32,49 +41,26 @@ export function useConsultarArca() {
 
     setIsLoading(true);
 
-    try {
-      const { data, error } = await supabase.functions.invoke('consultar-arca', {
-        body: { cuit },
-      });
+    // Detectar tipo de persona por el CUIT
+    const tipoPersona = detectarTipoPersona(cuit);
 
-      if (error) {
-        // Si hay error de función, mostrar mensaje amigable
-        console.error('Error de función:', error);
-        toast({
-          title: "Servicio no disponible",
-          description: "El servicio de ARCA no está disponible. Ingrese los datos manualmente.",
-          variant: "destructive",
-        });
-        return null;
-      }
+    // Simular delay para UX
+    await new Promise(resolve => setTimeout(resolve, 500));
 
-      if (!data || !data.success) {
-        toast({
-          title: "CUIT no encontrado",
-          description: data?.error || "No se encontraron datos. Ingrese los datos manualmente.",
-          variant: "destructive",
-        });
-        return null;
-      }
+    setIsLoading(false);
 
-      toast({
-        title: "Datos obtenidos",
-        description: "Se completaron los datos desde ARCA",
-      });
+    // Como las APIs públicas no funcionan, devolver datos básicos detectados
+    toast({
+      title: "Tipo de persona detectado",
+      description: `CUIT corresponde a persona ${tipoPersona === 'juridica' ? 'jurídica' : 'física'}. Complete los demás datos manualmente.`,
+    });
 
-      return data.data as DatosArca;
-
-    } catch (error: any) {
-      console.error('Error consultando ARCA:', error);
-      toast({
-        title: "Servicio no disponible",
-        description: "No se pudo conectar con ARCA. Ingrese los datos manualmente.",
-        variant: "destructive",
-      });
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
+    return {
+      nombre: '',
+      apellido: '',
+      tipoPersona,
+      situacionAfip: '',
+    };
   };
 
   return {
