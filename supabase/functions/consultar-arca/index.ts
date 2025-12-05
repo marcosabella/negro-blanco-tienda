@@ -25,7 +25,6 @@ interface ArcaResponse {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -40,7 +39,6 @@ serve(async (req) => {
       );
     }
 
-    // Limpiar CUIT (remover guiones y espacios)
     const cuitLimpio = cuit.replace(/[-\s]/g, '');
 
     if (cuitLimpio.length !== 11) {
@@ -52,68 +50,75 @@ serve(async (req) => {
 
     console.log(`Consultando CUIT: ${cuitLimpio}`);
 
-    // Intentar con API pública de cuitonline
+    // Usar API de consultas.afip.gob.ar (padrón público)
     let data = null;
-    let apiError = null;
 
     try {
+      // Intentar con nosis API (más confiable)
       const response = await fetch(
-        `https://cuitonline.com/search.php?q=${cuitLimpio}`,
+        `https://www.nosis.com/es/Buscar/buscar?buscar=${cuitLimpio}`,
         {
           method: 'GET',
           headers: {
-            'Accept': 'text/html,application/xhtml+xml',
-            'User-Agent': 'Mozilla/5.0 (compatible; AFIP-Consulta/1.0)',
+            'Accept': 'text/html',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           },
         }
       );
 
       if (response.ok) {
         const html = await response.text();
-        data = parseHtmlResponse(html, cuitLimpio);
+        console.log("HTML length:", html.length);
+        
+        // Buscar nombre en el resultado de nosis
+        const nombreMatch = html.match(/<h1[^>]*class="[^"]*title[^"]*"[^>]*>([^<]+)<\/h1>/i) ||
+                           html.match(/<span[^>]*class="[^"]*nombre[^"]*"[^>]*>([^<]+)<\/span>/i);
+        
+        if (nombreMatch && nombreMatch[1]) {
+          const nombreCompleto = nombreMatch[1].trim();
+          if (nombreCompleto && !nombreCompleto.includes('[') && nombreCompleto.length > 2) {
+            data = parseNombreCompleto(nombreCompleto, cuitLimpio, html);
+          }
+        }
       }
     } catch (e) {
-      console.log("Error con cuitonline:", e);
-      apiError = e;
+      console.log("Error con nosis:", e);
     }
 
-    // Si no funcionó, intentar con datosabiertos
+    // Intentar con constancia AFIP directo si no funcionó
     if (!data) {
       try {
         const response = await fetch(
-          `https://www.datosabiertos.gob.ar/api/3/action/datastore_search?resource_id=8f6e3d82-c3de-4d68-8b22-4d3e30c64ad5&q=${cuitLimpio}`,
+          `https://seti.afip.gob.ar/padron-puc-constancia-internet/ConsultaConstanciaAction.do?cuit=${cuitLimpio}`,
           {
             method: 'GET',
             headers: {
-              'Accept': 'application/json',
+              'Accept': 'text/html',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             },
           }
         );
 
         if (response.ok) {
-          const jsonData = await response.json();
-          if (jsonData.success && jsonData.result?.records?.length > 0) {
-            const record = jsonData.result.records[0];
-            data = {
-              nombre: record.nombre || '',
-              apellido: record.apellido || '',
-              tipoPersona: record.tipo_persona === 'JURIDICA' ? 'juridica' : 'fisica',
-              situacionAfip: mapearSituacionFromCategoria(record.categoria),
-            };
-          }
+          const html = await response.text();
+          console.log("AFIP HTML length:", html.length);
+          data = parseAfipConstancia(html, cuitLimpio);
         }
       } catch (e) {
-        console.log("Error con datosabiertos:", e);
+        console.log("Error con AFIP constancia:", e);
       }
     }
 
-    // Si aún no hay datos, retornar error pero permitir ingreso manual
+    // Si no funcionó ninguna API, usar lógica basada en el CUIT
     if (!data) {
-      console.log("No se pudieron obtener datos de ARCA");
+      const prefijo = cuitLimpio.substring(0, 2);
+      const esJuridica = ['30', '33', '34'].includes(prefijo);
+      
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: "No se encontraron datos para este CUIT. Por favor ingrese los datos manualmente." 
+          error: "No se pudieron obtener datos de ARCA. Por favor ingrese los datos manualmente.",
+          hint: esJuridica ? 'juridica' : 'fisica'
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
       );
@@ -134,83 +139,106 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error consultando ARCA:", error);
     return new Response(
-      JSON.stringify({ success: false, error: "Error interno del servidor. Ingrese los datos manualmente." }),
+      JSON.stringify({ success: false, error: "Error interno. Ingrese los datos manualmente." }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }
 });
 
-function parseHtmlResponse(html: string, cuit: string): any | null {
-  try {
-    // Buscar el nombre/razón social en el HTML
-    const nombreMatch = html.match(/class="denomination"[^>]*>([^<]+)</i) ||
-                       html.match(/Razón Social[^:]*:\s*([^<\n]+)/i) ||
-                       html.match(/Denominación[^:]*:\s*([^<\n]+)/i);
-    
-    if (!nombreMatch) {
-      return null;
-    }
-
-    const nombreCompleto = nombreMatch[1].trim();
-    
-    // Determinar tipo de persona por el prefijo del CUIT
-    const prefijo = cuit.substring(0, 2);
-    const esJuridica = ['30', '33', '34'].includes(prefijo);
-    
-    // Buscar situación fiscal
-    let situacionAfip = 'Consumidor Final';
-    if (html.includes('RESPONSABLE INSCRIPTO') || html.includes('Responsable Inscripto')) {
-      situacionAfip = 'Responsable Inscripto';
-    } else if (html.includes('MONOTRIBUTO') || html.includes('Monotributo')) {
-      situacionAfip = 'Monotributista';
-    } else if (html.includes('EXENTO') || html.includes('Exento')) {
-      situacionAfip = 'Exento';
-    }
-
-    let nombre = '';
-    let apellido = '';
-
-    if (esJuridica) {
-      nombre = nombreCompleto;
-      apellido = '';
-    } else {
-      // Para personas físicas, separar apellido y nombre
-      const partes = nombreCompleto.split(/\s+/);
-      if (partes.length >= 2) {
-        // Generalmente viene como "APELLIDO NOMBRE"
-        apellido = partes[0];
-        nombre = partes.slice(1).join(' ');
-      } else {
-        nombre = nombreCompleto;
-        apellido = '';
-      }
-    }
-
-    return {
-      nombre,
-      apellido,
-      razonSocial: esJuridica ? nombreCompleto : undefined,
-      tipoPersona: esJuridica ? 'juridica' : 'fisica',
-      situacionAfip,
-    };
-  } catch (e) {
-    console.error("Error parseando HTML:", e);
-    return null;
+function parseNombreCompleto(nombreCompleto: string, cuit: string, html: string) {
+  const prefijo = cuit.substring(0, 2);
+  const esJuridica = ['30', '33', '34'].includes(prefijo);
+  
+  let situacionAfip = 'Consumidor Final';
+  const htmlLower = html.toLowerCase();
+  if (htmlLower.includes('responsable inscripto')) {
+    situacionAfip = 'Responsable Inscripto';
+  } else if (htmlLower.includes('monotributo') || htmlLower.includes('monotributista')) {
+    situacionAfip = 'Monotributista';
+  } else if (htmlLower.includes('exento')) {
+    situacionAfip = 'Exento';
   }
+
+  let nombre = '';
+  let apellido = '';
+
+  if (esJuridica) {
+    nombre = nombreCompleto;
+  } else {
+    const partes = nombreCompleto.split(/\s+/);
+    if (partes.length >= 2) {
+      apellido = partes[0];
+      nombre = partes.slice(1).join(' ');
+    } else {
+      nombre = nombreCompleto;
+    }
+  }
+
+  return {
+    nombre,
+    apellido,
+    razonSocial: esJuridica ? nombreCompleto : undefined,
+    tipoPersona: esJuridica ? 'juridica' as const : 'fisica' as const,
+    situacionAfip,
+  };
 }
 
-function mapearSituacionFromCategoria(categoria: string): string {
-  if (!categoria) return 'Consumidor Final';
+function parseAfipConstancia(html: string, cuit: string) {
+  // Buscar apellido y nombre en constancia AFIP
+  const apellidoMatch = html.match(/Apellido[^:]*:\s*<[^>]*>([^<]+)</i) ||
+                       html.match(/<td[^>]*>Apellido[^<]*<\/td>\s*<td[^>]*>([^<]+)<\/td>/i);
   
-  const cat = categoria.toUpperCase();
-  if (cat.includes('RI') || cat.includes('RESPONSABLE INSCRIPTO')) {
-    return 'Responsable Inscripto';
+  const nombreMatch = html.match(/Nombre[^:]*:\s*<[^>]*>([^<]+)</i) ||
+                     html.match(/<td[^>]*>Nombre[^<]*<\/td>\s*<td[^>]*>([^<]+)<\/td>/i);
+  
+  const razonSocialMatch = html.match(/Raz[oó]n\s*Social[^:]*:\s*<[^>]*>([^<]+)</i) ||
+                          html.match(/<td[^>]*>Raz[oó]n\s*Social[^<]*<\/td>\s*<td[^>]*>([^<]+)<\/td>/i);
+
+  const prefijo = cuit.substring(0, 2);
+  const esJuridica = ['30', '33', '34'].includes(prefijo);
+
+  let nombre = '';
+  let apellido = '';
+  let razonSocial = '';
+
+  if (razonSocialMatch && razonSocialMatch[1]) {
+    razonSocial = razonSocialMatch[1].trim();
+    nombre = razonSocial;
   }
-  if (cat.includes('MONO') || cat.includes('RS')) {
-    return 'Monotributista';
+  
+  if (nombreMatch && nombreMatch[1]) {
+    nombre = nombreMatch[1].trim();
   }
-  if (cat.includes('EX')) {
-    return 'Exento';
+  
+  if (apellidoMatch && apellidoMatch[1]) {
+    apellido = apellidoMatch[1].trim();
   }
-  return 'Consumidor Final';
+
+  // Validar que tengamos datos válidos
+  if (!nombre && !apellido && !razonSocial) {
+    return null;
+  }
+
+  // Evitar datos inválidos
+  if (nombre.includes('[') || nombre.includes('{') || nombre.length < 2) {
+    return null;
+  }
+
+  let situacionAfip = 'Consumidor Final';
+  const htmlLower = html.toLowerCase();
+  if (htmlLower.includes('iva responsable inscripto') || htmlLower.includes('responsable inscripto')) {
+    situacionAfip = 'Responsable Inscripto';
+  } else if (htmlLower.includes('monotributo') || htmlLower.includes('régimen simplificado')) {
+    situacionAfip = 'Monotributista';
+  } else if (htmlLower.includes('iva exento') || htmlLower.includes('exento')) {
+    situacionAfip = 'Exento';
+  }
+
+  return {
+    nombre,
+    apellido,
+    razonSocial: esJuridica ? razonSocial || nombre : undefined,
+    tipoPersona: esJuridica ? 'juridica' as const : 'fisica' as const,
+    situacionAfip,
+  };
 }
