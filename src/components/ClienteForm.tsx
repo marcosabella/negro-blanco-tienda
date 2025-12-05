@@ -8,8 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useCreateCliente, useUpdateCliente } from '@/hooks/useClientes';
+import { useConsultarArca } from '@/hooks/useConsultarArca';
 import { Cliente, SITUACIONES_AFIP, PROVINCIAS_ARGENTINA } from '@/types/cliente';
 import { validateCUIT, validateEmail, validatePhone } from '@/utils/validations';
+import { Search, Loader2 } from 'lucide-react';
 
 const clienteSchema = z.object({
   nombre: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
@@ -37,12 +39,14 @@ interface ClienteFormProps {
 export function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
   const createCliente = useCreateCliente();
   const updateCliente = useUpdateCliente();
+  const { consultarCuit, isLoading: isLoadingArca } = useConsultarArca();
   
   const {
     register,
     handleSubmit,
     setValue,
     watch,
+    getValues,
     formState: { errors },
   } = useForm<ClienteFormData>({
     resolver: zodResolver(clienteSchema),
@@ -67,9 +71,38 @@ export function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
 
   const watchedTipoPersona = watch('tipo_persona');
 
+  const handleConsultarArca = async () => {
+    const cuit = getValues('cuit');
+    const datos = await consultarCuit(cuit);
+    
+    if (datos) {
+      setValue('tipo_persona', datos.tipoPersona);
+      setValue('nombre', datos.nombre);
+      setValue('apellido', datos.apellido || '');
+      setValue('situacion_afip', datos.situacionAfip);
+      
+      if (datos.domicilioFiscal) {
+        if (datos.domicilioFiscal.calle) {
+          setValue('calle', datos.domicilioFiscal.calle);
+        }
+        if (datos.domicilioFiscal.numero) {
+          setValue('numero', datos.domicilioFiscal.numero);
+        }
+        if (datos.domicilioFiscal.localidad) {
+          setValue('localidad', datos.domicilioFiscal.localidad);
+        }
+        if (datos.domicilioFiscal.provincia) {
+          setValue('provincia', datos.domicilioFiscal.provincia);
+        }
+        if (datos.domicilioFiscal.codigoPostal) {
+          setValue('codigo_postal', datos.domicilioFiscal.codigoPostal);
+        }
+      }
+    }
+  };
+
   const onSubmit = async (data: ClienteFormData) => {
     try {
-      // Transform form data to match Cliente interface
       const clienteData: Omit<Cliente, 'id' | 'created_at' | 'updated_at'> = {
         nombre: data.nombre,
         apellido: data.apellido,
@@ -106,6 +139,43 @@ export function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {/* CUIT - Primer campo */}
+          <div className="space-y-2">
+            <Label htmlFor="cuit">CUIT / DNI</Label>
+            <div className="flex gap-2">
+              <Input
+                id="cuit"
+                {...register('cuit')}
+                placeholder="XX-XXXXXXXX-X"
+                maxLength={13}
+                className="flex-1"
+              />
+              {!cliente && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleConsultarArca}
+                  disabled={isLoadingArca}
+                >
+                  {isLoadingArca ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Search className="h-4 w-4" />
+                  )}
+                  <span className="ml-2">Buscar en ARCA</span>
+                </Button>
+              )}
+            </div>
+            {errors.cuit && (
+              <p className="text-sm text-destructive">{String(errors.cuit.message)}</p>
+            )}
+            {!cliente && (
+              <p className="text-sm text-muted-foreground">
+                Ingrese el CUIT y presione "Buscar en ARCA" para completar los datos automáticamente
+              </p>
+            )}
+          </div>
+
           {/* Tipo de Persona */}
           <div className="space-y-3">
             <Label className="text-base font-medium">Tipo de Persona</Label>
@@ -128,41 +198,55 @@ export function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
           {/* Datos Personales */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="nombre">Nombre</Label>
+              <Label htmlFor="nombre">
+                {watchedTipoPersona === 'juridica' ? 'Razón Social' : 'Nombre'}
+              </Label>
               <Input
                 id="nombre"
                 {...register('nombre')}
-                placeholder="Ingrese el nombre"
+                placeholder={watchedTipoPersona === 'juridica' ? 'Ingrese la razón social' : 'Ingrese el nombre'}
               />
               {errors.nombre && (
                 <p className="text-sm text-destructive">{String(errors.nombre.message)}</p>
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="apellido">Apellido</Label>
-              <Input
-                id="apellido"
-                {...register('apellido')}
-                placeholder="Ingrese el apellido"
-              />
-              {errors.apellido && (
-                <p className="text-sm text-destructive">{String(errors.apellido.message)}</p>
-              )}
-            </div>
+            {watchedTipoPersona === 'fisica' && (
+              <div className="space-y-2">
+                <Label htmlFor="apellido">Apellido</Label>
+                <Input
+                  id="apellido"
+                  {...register('apellido')}
+                  placeholder="Ingrese el apellido"
+                />
+                {errors.apellido && (
+                  <p className="text-sm text-destructive">{String(errors.apellido.message)}</p>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* CUIT */}
+          {/* Situación AFIP - Movido arriba */}
           <div className="space-y-2">
-            <Label htmlFor="cuit">CUIT</Label>
-            <Input
-              id="cuit"
-              {...register('cuit')}
-              placeholder="XX-XXXXXXXX-X"
-              maxLength={13}
-            />
-            {errors.cuit && (
-              <p className="text-sm text-destructive">{String(errors.cuit.message)}</p>
+            <Label htmlFor="situacion_afip">Situación AFIP</Label>
+            <Select 
+              defaultValue={cliente?.situacion_afip}
+              value={watch('situacion_afip')}
+              onValueChange={(value) => setValue('situacion_afip', value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar situación" />
+              </SelectTrigger>
+              <SelectContent>
+                {SITUACIONES_AFIP.map((situacion) => (
+                  <SelectItem key={situacion} value={situacion}>
+                    {situacion}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.situacion_afip && (
+              <p className="text-sm text-destructive">{String(errors.situacion_afip.message)}</p>
             )}
           </div>
 
@@ -224,6 +308,7 @@ export function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
                 <Label htmlFor="provincia">Provincia</Label>
                 <Select 
                   defaultValue={cliente?.provincia}
+                  value={watch('provincia')}
                   onValueChange={(value) => setValue('provincia', value)}
                 >
                   <SelectTrigger>
@@ -272,44 +357,17 @@ export function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
             </div>
           </div>
 
-          {/* Datos Fiscales */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Datos Fiscales</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="situacion_afip">Situación AFIP</Label>
-                <Select 
-                  defaultValue={cliente?.situacion_afip}
-                  onValueChange={(value) => setValue('situacion_afip', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar situación" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SITUACIONES_AFIP.map((situacion) => (
-                      <SelectItem key={situacion} value={situacion}>
-                        {situacion}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.situacion_afip && (
-                  <p className="text-sm text-destructive">{String(errors.situacion_afip.message)}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="ingresos_brutos">Ingresos Brutos</Label>
-                <Input
-                  id="ingresos_brutos"
-                  {...register('ingresos_brutos')}
-                  placeholder="Número de inscripción"
-                />
-                {errors.ingresos_brutos && (
-                  <p className="text-sm text-destructive">{String(errors.ingresos_brutos.message)}</p>
-                )}
-              </div>
-            </div>
+          {/* Ingresos Brutos */}
+          <div className="space-y-2">
+            <Label htmlFor="ingresos_brutos">Ingresos Brutos</Label>
+            <Input
+              id="ingresos_brutos"
+              {...register('ingresos_brutos')}
+              placeholder="Número de inscripción"
+            />
+            {errors.ingresos_brutos && (
+              <p className="text-sm text-destructive">{String(errors.ingresos_brutos.message)}</p>
+            )}
           </div>
 
           {/* Botones */}
