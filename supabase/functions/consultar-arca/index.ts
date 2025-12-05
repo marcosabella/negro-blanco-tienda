@@ -50,75 +50,135 @@ serve(async (req) => {
 
     console.log(`Consultando CUIT: ${cuitLimpio}`);
 
-    // Usar API de consultas.afip.gob.ar (padrón público)
+    const prefijo = cuitLimpio.substring(0, 2);
+    const esJuridica = ['30', '33', '34'].includes(prefijo);
+
     let data = null;
 
+    // Intentar con API de AFIP pública (padron alcanzados)
     try {
-      // Intentar con nosis API (más confiable)
       const response = await fetch(
-        `https://www.nosis.com/es/Buscar/buscar?buscar=${cuitLimpio}`,
+        `https://afip.puc.gob.ar/buscar?q=${cuitLimpio}`,
         {
           method: 'GET',
           headers: {
-            'Accept': 'text/html',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json, text/html',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
           },
         }
       );
 
       if (response.ok) {
-        const html = await response.text();
-        console.log("HTML length:", html.length);
-        
-        // Buscar nombre en el resultado de nosis
-        const nombreMatch = html.match(/<h1[^>]*class="[^"]*title[^"]*"[^>]*>([^<]+)<\/h1>/i) ||
-                           html.match(/<span[^>]*class="[^"]*nombre[^"]*"[^>]*>([^<]+)<\/span>/i);
-        
-        if (nombreMatch && nombreMatch[1]) {
-          const nombreCompleto = nombreMatch[1].trim();
-          if (nombreCompleto && !nombreCompleto.includes('[') && nombreCompleto.length > 2) {
-            data = parseNombreCompleto(nombreCompleto, cuitLimpio, html);
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const json = await response.json();
+          console.log("AFIP JSON:", JSON.stringify(json));
+          if (json && json.persona) {
+            data = parseAfipJson(json, cuitLimpio);
           }
         }
       }
     } catch (e) {
-      console.log("Error con nosis:", e);
+      console.log("Error con AFIP puc:", e);
     }
 
-    // Intentar con constancia AFIP directo si no funcionó
+    // Intentar con API gratuita de Apis Datos Argentina
     if (!data) {
       try {
         const response = await fetch(
-          `https://seti.afip.gob.ar/padron-puc-constancia-internet/ConsultaConstanciaAction.do?cuit=${cuitLimpio}`,
+          `https://apis.datos.gob.ar/georef/api/provincias`,
+          { method: 'GET' }
+        );
+        // Esta API es solo para referencia de provincias, no tiene datos de CUIT
+        console.log("APIs datos.gob.ar disponible");
+      } catch (e) {
+        console.log("Error con datos.gob.ar:", e);
+      }
+    }
+
+    // Usar servicio alternativo - Cuit Argentina API
+    if (!data) {
+      try {
+        const response = await fetch(
+          `https://cuit.ar/api/v1/cuit/${cuitLimpio}`,
           {
             method: 'GET',
             headers: {
-              'Accept': 'text/html',
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Accept': 'application/json',
             },
           }
         );
 
         if (response.ok) {
-          const html = await response.text();
-          console.log("AFIP HTML length:", html.length);
-          data = parseAfipConstancia(html, cuitLimpio);
+          const json = await response.json();
+          console.log("cuit.ar response:", JSON.stringify(json));
+          if (json && (json.nombre || json.razonSocial || json.denominacion)) {
+            data = parseCuitArResponse(json, cuitLimpio);
+          }
         }
       } catch (e) {
-        console.log("Error con AFIP constancia:", e);
+        console.log("Error con cuit.ar:", e);
       }
     }
 
-    // Si no funcionó ninguna API, usar lógica basada en el CUIT
+    // Usar Cuitonline API
     if (!data) {
-      const prefijo = cuitLimpio.substring(0, 2);
-      const esJuridica = ['30', '33', '34'].includes(prefijo);
-      
+      try {
+        const response = await fetch(
+          `https://www.cuitonline.com/detalle/${cuitLimpio}.json`,
+          {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+            },
+          }
+        );
+
+        if (response.ok) {
+          const json = await response.json();
+          console.log("cuitonline response:", JSON.stringify(json));
+          if (json && json.razonSocial) {
+            data = {
+              nombre: esJuridica ? json.razonSocial : (json.nombre || json.razonSocial.split(' ').slice(1).join(' ')),
+              apellido: esJuridica ? '' : (json.apellido || json.razonSocial.split(' ')[0] || ''),
+              razonSocial: json.razonSocial,
+              tipoPersona: esJuridica ? 'juridica' as const : 'fisica' as const,
+              situacionAfip: mapearCondicionIva(json.condicionIva || json.categoriaIva),
+              domicilioFiscal: json.domicilio ? {
+                calle: json.domicilio.calle,
+                numero: json.domicilio.numero,
+                localidad: json.domicilio.localidad,
+                provincia: json.domicilio.provincia,
+                codigoPostal: json.domicilio.codigoPostal,
+              } : undefined,
+            };
+          }
+        }
+      } catch (e) {
+        console.log("Error con cuitonline:", e);
+      }
+    }
+
+    if (!data) {
+      console.log("No se encontraron datos en ninguna API");
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: "No se pudieron obtener datos de ARCA. Por favor ingrese los datos manualmente.",
-          hint: esJuridica ? 'juridica' : 'fisica'
+          error: "No se pudieron obtener datos. Complete manualmente.",
+          tipoPersona: esJuridica ? 'juridica' : 'fisica'
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
+      );
+    }
+
+    // Validar datos antes de devolver
+    if (data.nombre && (data.nombre.includes('[') || data.nombre.includes('{'))) {
+      console.log("Datos inválidos detectados, descartando");
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Datos inválidos. Complete manualmente.",
+          tipoPersona: esJuridica ? 'juridica' : 'fisica'
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
       );
@@ -129,7 +189,7 @@ serve(async (req) => {
       data: data,
     };
 
-    console.log("Datos obtenidos:", JSON.stringify(result));
+    console.log("Datos obtenidos exitosamente:", JSON.stringify(result));
 
     return new Response(
       JSON.stringify(result),
@@ -137,108 +197,89 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error("Error consultando ARCA:", error);
+    console.error("Error general:", error);
     return new Response(
-      JSON.stringify({ success: false, error: "Error interno. Ingrese los datos manualmente." }),
+      JSON.stringify({ success: false, error: "Error interno. Complete manualmente." }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }
 });
 
-function parseNombreCompleto(nombreCompleto: string, cuit: string, html: string) {
+function parseAfipJson(json: any, cuit: string) {
   const prefijo = cuit.substring(0, 2);
   const esJuridica = ['30', '33', '34'].includes(prefijo);
   
-  let situacionAfip = 'Consumidor Final';
-  const htmlLower = html.toLowerCase();
-  if (htmlLower.includes('responsable inscripto')) {
-    situacionAfip = 'Responsable Inscripto';
-  } else if (htmlLower.includes('monotributo') || htmlLower.includes('monotributista')) {
-    situacionAfip = 'Monotributista';
-  } else if (htmlLower.includes('exento')) {
-    situacionAfip = 'Exento';
-  }
+  const persona = json.persona;
+  
+  return {
+    nombre: esJuridica ? (persona.razonSocial || persona.denominacion) : persona.nombre,
+    apellido: esJuridica ? '' : (persona.apellido || ''),
+    razonSocial: persona.razonSocial || persona.denominacion,
+    tipoPersona: esJuridica ? 'juridica' as const : 'fisica' as const,
+    situacionAfip: mapearCondicionIva(persona.categoriaIva || persona.condicionIva),
+    domicilioFiscal: persona.domicilio ? {
+      calle: persona.domicilio.direccion || persona.domicilio.calle,
+      numero: persona.domicilio.numero,
+      localidad: persona.domicilio.localidad,
+      provincia: persona.domicilio.provincia,
+      codigoPostal: persona.domicilio.codigoPostal || persona.domicilio.cp,
+    } : undefined,
+  };
+}
 
+function parseCuitArResponse(json: any, cuit: string) {
+  const prefijo = cuit.substring(0, 2);
+  const esJuridica = ['30', '33', '34'].includes(prefijo);
+  
+  const denominacion = json.denominacion || json.razonSocial || json.nombre || '';
+  
   let nombre = '';
   let apellido = '';
-
+  
   if (esJuridica) {
-    nombre = nombreCompleto;
+    nombre = denominacion;
   } else {
-    const partes = nombreCompleto.split(/\s+/);
+    const partes = denominacion.split(/\s+/);
     if (partes.length >= 2) {
       apellido = partes[0];
       nombre = partes.slice(1).join(' ');
     } else {
-      nombre = nombreCompleto;
+      nombre = denominacion;
     }
   }
-
+  
   return {
     nombre,
     apellido,
-    razonSocial: esJuridica ? nombreCompleto : undefined,
+    razonSocial: esJuridica ? denominacion : undefined,
     tipoPersona: esJuridica ? 'juridica' as const : 'fisica' as const,
-    situacionAfip,
+    situacionAfip: mapearCondicionIva(json.categoriaIva || json.condicionIva || json.categoria),
+    domicilioFiscal: json.domicilio ? {
+      calle: json.domicilio.calle || json.domicilio.direccion,
+      localidad: json.domicilio.localidad,
+      provincia: json.domicilio.provincia,
+      codigoPostal: json.domicilio.codigoPostal,
+    } : undefined,
   };
 }
 
-function parseAfipConstancia(html: string, cuit: string) {
-  // Buscar apellido y nombre en constancia AFIP
-  const apellidoMatch = html.match(/Apellido[^:]*:\s*<[^>]*>([^<]+)</i) ||
-                       html.match(/<td[^>]*>Apellido[^<]*<\/td>\s*<td[^>]*>([^<]+)<\/td>/i);
+function mapearCondicionIva(condicion: string | undefined): string {
+  if (!condicion) return 'Consumidor Final';
   
-  const nombreMatch = html.match(/Nombre[^:]*:\s*<[^>]*>([^<]+)</i) ||
-                     html.match(/<td[^>]*>Nombre[^<]*<\/td>\s*<td[^>]*>([^<]+)<\/td>/i);
+  const cond = condicion.toUpperCase();
   
-  const razonSocialMatch = html.match(/Raz[oó]n\s*Social[^:]*:\s*<[^>]*>([^<]+)</i) ||
-                          html.match(/<td[^>]*>Raz[oó]n\s*Social[^<]*<\/td>\s*<td[^>]*>([^<]+)<\/td>/i);
-
-  const prefijo = cuit.substring(0, 2);
-  const esJuridica = ['30', '33', '34'].includes(prefijo);
-
-  let nombre = '';
-  let apellido = '';
-  let razonSocial = '';
-
-  if (razonSocialMatch && razonSocialMatch[1]) {
-    razonSocial = razonSocialMatch[1].trim();
-    nombre = razonSocial;
+  if (cond.includes('RESPONSABLE INSCRIPTO') || cond.includes('RI') || cond === 'AC') {
+    return 'Responsable Inscripto';
+  }
+  if (cond.includes('MONOTRIBUTO') || cond.includes('MONOTRIBUTISTA') || cond.includes('RS') || cond === 'M') {
+    return 'Monotributista';
+  }
+  if (cond.includes('EXENTO') || cond.includes('EX')) {
+    return 'Exento';
+  }
+  if (cond.includes('CONSUMIDOR FINAL') || cond.includes('CF')) {
+    return 'Consumidor Final';
   }
   
-  if (nombreMatch && nombreMatch[1]) {
-    nombre = nombreMatch[1].trim();
-  }
-  
-  if (apellidoMatch && apellidoMatch[1]) {
-    apellido = apellidoMatch[1].trim();
-  }
-
-  // Validar que tengamos datos válidos
-  if (!nombre && !apellido && !razonSocial) {
-    return null;
-  }
-
-  // Evitar datos inválidos
-  if (nombre.includes('[') || nombre.includes('{') || nombre.length < 2) {
-    return null;
-  }
-
-  let situacionAfip = 'Consumidor Final';
-  const htmlLower = html.toLowerCase();
-  if (htmlLower.includes('iva responsable inscripto') || htmlLower.includes('responsable inscripto')) {
-    situacionAfip = 'Responsable Inscripto';
-  } else if (htmlLower.includes('monotributo') || htmlLower.includes('régimen simplificado')) {
-    situacionAfip = 'Monotributista';
-  } else if (htmlLower.includes('iva exento') || htmlLower.includes('exento')) {
-    situacionAfip = 'Exento';
-  }
-
-  return {
-    nombre,
-    apellido,
-    razonSocial: esJuridica ? razonSocial || nombre : undefined,
-    tipoPersona: esJuridica ? 'juridica' as const : 'fisica' as const,
-    situacionAfip,
-  };
+  return 'Consumidor Final';
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
 export interface DatosArca {
@@ -20,7 +21,6 @@ export interface DatosArca {
 function detectarTipoPersona(cuit: string): 'fisica' | 'juridica' {
   const cuitLimpio = cuit.replace(/[-\s]/g, '');
   const prefijo = cuitLimpio.substring(0, 2);
-  // 30, 33, 34 son personas jurídicas
   return ['30', '33', '34'].includes(prefijo) ? 'juridica' : 'fisica';
 }
 
@@ -41,26 +41,65 @@ export function useConsultarArca() {
 
     setIsLoading(true);
 
-    // Detectar tipo de persona por el CUIT
-    const tipoPersona = detectarTipoPersona(cuit);
+    try {
+      const { data, error } = await supabase.functions.invoke('consultar-arca', {
+        body: { cuit },
+      });
 
-    // Simular delay para UX
-    await new Promise(resolve => setTimeout(resolve, 500));
+      if (error) {
+        console.error('Error de función:', error);
+        // Si hay error, al menos devolver el tipo de persona
+        const tipoPersona = detectarTipoPersona(cuit);
+        toast({
+          title: "Servicio limitado",
+          description: `Se detectó persona ${tipoPersona === 'juridica' ? 'jurídica' : 'física'}. Complete los demás datos.`,
+        });
+        return {
+          nombre: '',
+          apellido: '',
+          tipoPersona,
+          situacionAfip: '',
+        };
+      }
 
-    setIsLoading(false);
+      if (!data || !data.success) {
+        // Usar el tipo de persona del response si está disponible
+        const tipoPersona = data?.tipoPersona || detectarTipoPersona(cuit);
+        toast({
+          title: "Datos parciales",
+          description: `Tipo: persona ${tipoPersona === 'juridica' ? 'jurídica' : 'física'}. Complete los demás datos.`,
+        });
+        return {
+          nombre: '',
+          apellido: '',
+          tipoPersona,
+          situacionAfip: '',
+        };
+      }
 
-    // Como las APIs públicas no funcionan, devolver datos básicos detectados
-    toast({
-      title: "Tipo de persona detectado",
-      description: `CUIT corresponde a persona ${tipoPersona === 'juridica' ? 'jurídica' : 'física'}. Complete los demás datos manualmente.`,
-    });
+      toast({
+        title: "Datos obtenidos",
+        description: "Se completaron los datos desde ARCA",
+      });
 
-    return {
-      nombre: '',
-      apellido: '',
-      tipoPersona,
-      situacionAfip: '',
-    };
+      return data.data as DatosArca;
+
+    } catch (error: any) {
+      console.error('Error consultando ARCA:', error);
+      const tipoPersona = detectarTipoPersona(cuit);
+      toast({
+        title: "Servicio no disponible",
+        description: `Se detectó persona ${tipoPersona === 'juridica' ? 'jurídica' : 'física'}. Complete manualmente.`,
+      });
+      return {
+        nombre: '',
+        apellido: '',
+        tipoPersona,
+        situacionAfip: '',
+      };
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return {
