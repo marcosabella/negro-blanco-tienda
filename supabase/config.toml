@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.consultar-ultimo-comprobante]
 verify_jwt = false
+
+[functions.consultar-padron-afip]
+verify_jwt = false

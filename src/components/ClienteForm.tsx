@@ -152,7 +152,7 @@ export function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
                   ) : (
                     <Search className="h-4 w-4" />
                   )}
-                  <span className="ml-2">Buscar en ARCA</span>
+                  <span className="ml-2">Buscar en AFIP</span>
                 </Button>
               )}
             </div>
@@ -161,7 +161,7 @@ export function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
             )}
             {!cliente && (
               <p className="text-sm text-muted-foreground">
-                Ingrese el CUIT y presione "Buscar en ARCA" para completar los datos automáticamente
+                Ingrese el CUIT y presione "Buscar en AFIP" para completar los datos usando el certificado digital
               </p>
             )}
           </div>

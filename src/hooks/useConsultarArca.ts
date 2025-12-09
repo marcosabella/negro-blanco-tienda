@@ -42,17 +42,18 @@ export function useConsultarArca() {
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('consultar-arca', {
+      // Consultar el padrón oficial de AFIP usando el certificado digital
+      const { data, error } = await supabase.functions.invoke('consultar-padron-afip', {
         body: { cuit },
       });
 
       if (error) {
         console.error('Error de función:', error);
-        // Si hay error, al menos devolver el tipo de persona
         const tipoPersona = detectarTipoPersona(cuit);
         toast({
-          title: "Servicio limitado",
-          description: `Se detectó persona ${tipoPersona === 'juridica' ? 'jurídica' : 'física'}. Complete los demás datos.`,
+          title: "Error de conexión",
+          description: `Se detectó persona ${tipoPersona === 'juridica' ? 'jurídica' : 'física'}. Complete los datos manualmente.`,
+          variant: "destructive",
         });
         return {
           nombre: '',
@@ -63,11 +64,11 @@ export function useConsultarArca() {
       }
 
       if (!data || !data.success) {
-        // Usar el tipo de persona del response si está disponible
         const tipoPersona = data?.tipoPersona || detectarTipoPersona(cuit);
         toast({
-          title: "Datos parciales",
-          description: `Tipo: persona ${tipoPersona === 'juridica' ? 'jurídica' : 'física'}. Complete los demás datos.`,
+          title: "No se pudo consultar AFIP",
+          description: data?.error || `Complete los datos manualmente. Tipo: persona ${tipoPersona === 'juridica' ? 'jurídica' : 'física'}.`,
+          variant: "destructive",
         });
         return {
           nombre: '',
@@ -78,18 +79,19 @@ export function useConsultarArca() {
       }
 
       toast({
-        title: "Datos obtenidos",
-        description: "Se completaron los datos desde ARCA",
+        title: "Datos obtenidos de AFIP",
+        description: "Se completaron los datos desde el padrón oficial de AFIP",
       });
 
       return data.data as DatosArca;
 
     } catch (error: any) {
-      console.error('Error consultando ARCA:', error);
+      console.error('Error consultando padrón AFIP:', error);
       const tipoPersona = detectarTipoPersona(cuit);
       toast({
-        title: "Servicio no disponible",
-        description: `Se detectó persona ${tipoPersona === 'juridica' ? 'jurídica' : 'física'}. Complete manualmente.`,
+        title: "Error al consultar AFIP",
+        description: `Se detectó persona ${tipoPersona === 'juridica' ? 'jurídica' : 'física'}. Complete los datos manualmente.`,
+        variant: "destructive",
       });
       return {
         nombre: '',
