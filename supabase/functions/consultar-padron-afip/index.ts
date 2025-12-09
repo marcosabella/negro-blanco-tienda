@@ -1,30 +1,111 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0';
+import forge from 'https://esm.sh/node-forge@1.3.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Función para formatear fecha en formato AFIP (ISO 8601 con timezone Argentina)
+function formatearFechaAFIP(fecha: Date): string {
+  const argentinaOffset = -3 * 60 * 60 * 1000;
+  const utcTime = fecha.getTime();
+  const argentinaTime = new Date(utcTime + argentinaOffset);
+  
+  const year = argentinaTime.getUTCFullYear();
+  const month = String(argentinaTime.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(argentinaTime.getUTCDate()).padStart(2, '0');
+  const hours = String(argentinaTime.getUTCHours()).padStart(2, '0');
+  const minutes = String(argentinaTime.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(argentinaTime.getUTCSeconds()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-03:00`;
+}
+
 // Crear TRA (Ticket de Requerimiento de Acceso) para el servicio ws_sr_padron_a5
 function crearTRA(service: string): string {
   const ahora = new Date();
-  const generationTime = new Date(ahora.getTime() - 10 * 60000); // 10 minutos atrás
-  const expirationTime = new Date(ahora.getTime() + 10 * 60000); // 10 minutos adelante
-  
-  const uniqueId = Date.now();
+  const generationTime = new Date(ahora.getTime() - 10 * 60000);
+  const expirationTime = new Date(ahora.getTime() + 10 * 60000);
+  const uniqueId = Math.floor(Date.now() / 1000);
   
   return `<?xml version="1.0" encoding="UTF-8"?>
 <loginTicketRequest version="1.0">
-  <header>
-    <uniqueId>${uniqueId}</uniqueId>
-    <generationTime>${generationTime.toISOString()}</generationTime>
-    <expirationTime>${expirationTime.toISOString()}</expirationTime>
-  </header>
-  <service>${service}</service>
+<header>
+<uniqueId>${uniqueId}</uniqueId>
+<generationTime>${formatearFechaAFIP(generationTime)}</generationTime>
+<expirationTime>${formatearFechaAFIP(expirationTime)}</expirationTime>
+</header>
+<service>${service}</service>
 </loginTicketRequest>`;
 }
 
-// Firmar TRA con certificado (simplificado - envía directo a WSAA)
+// Firmar TRA usando PKCS#7/CMS con node-forge
+function firmarTRA(tra: string, certPem: string, keyPem: string): string {
+  try {
+    console.log('Iniciando firma del TRA...');
+    console.log('TRA a firmar:', tra);
+    
+    // Normalizar los saltos de línea en los certificados
+    const certNormalized = certPem.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const keyNormalized = keyPem.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    
+    // Parsear certificado y clave privada
+    const certificate = forge.pki.certificateFromPem(certNormalized);
+    const privateKey = forge.pki.privateKeyFromPem(keyNormalized);
+    
+    console.log('Certificado CN:', certificate.subject.getField('CN')?.value);
+    console.log('Certificado válido hasta:', certificate.validity.notAfter);
+    
+    // Crear el mensaje PKCS#7 firmado
+    const p7 = forge.pkcs7.createSignedData();
+    
+    // Agregar el contenido (TRA como bytes)
+    p7.content = forge.util.createBuffer(tra, 'utf8');
+    
+    // Agregar el certificado del firmante
+    p7.addCertificate(certificate);
+    
+    // Agregar el firmante con SHA-256
+    p7.addSigner({
+      key: privateKey,
+      certificate: certificate,
+      digestAlgorithm: forge.pki.oids.sha256,
+      authenticatedAttributes: [
+        {
+          type: forge.pki.oids.contentType,
+          value: forge.pki.oids.data
+        },
+        {
+          type: forge.pki.oids.messageDigest
+        },
+        {
+          type: forge.pki.oids.signingTime,
+          value: new Date()
+        }
+      ]
+    });
+    
+    // Firmar
+    p7.sign();
+    
+    console.log('TRA firmado correctamente');
+    
+    // Convertir a DER y luego a Base64
+    const asn1 = p7.toAsn1();
+    const der = forge.asn1.toDer(asn1);
+    const cms = forge.util.encode64(der.getBytes());
+    
+    console.log('CMS generado, longitud:', cms.length);
+    
+    return cms;
+  } catch (error) {
+    console.error('Error al firmar TRA:', error);
+    throw new Error(`Error al firmar TRA: ${error.message}`);
+  }
+}
+
+// Obtener token y sign de WSAA
 async function obtenerTokenYSign(
   certPem: string,
   keyPem: string,
@@ -32,64 +113,26 @@ async function obtenerTokenYSign(
   ambiente: 'homologacion' | 'produccion'
 ): Promise<{ token: string; sign: string }> {
   try {
-    console.log('Creando TRA para servicio:', service);
     const tra = crearTRA(service);
+    console.log('TRA creado');
     
-    // Importar la clave privada
-    const keyData = keyPem
-      .replace('-----BEGIN PRIVATE KEY-----', '')
-      .replace('-----END PRIVATE KEY-----', '')
-      .replace('-----BEGIN RSA PRIVATE KEY-----', '')
-      .replace('-----END RSA PRIVATE KEY-----', '')
-      .replace(/\s/g, '');
+    const cms = firmarTRA(tra, certPem, keyPem);
     
-    const keyBytes = Uint8Array.from(atob(keyData), c => c.charCodeAt(0));
-    
-    const privateKey = await crypto.subtle.importKey(
-      'pkcs8',
-      keyBytes,
-      {
-        name: 'RSASSA-PKCS1-v1_5',
-        hash: 'SHA-256',
-      },
-      false,
-      ['sign']
-    );
-
-    // Firmar el TRA
-    const encoder = new TextEncoder();
-    const data = encoder.encode(tra);
-    const signature = await crypto.subtle.sign(
-      'RSASSA-PKCS1-v1_5',
-      privateKey,
-      data
-    );
-
-    const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
-
-    // Extraer el certificado sin headers
-    const certData = certPem
-      .replace('-----BEGIN CERTIFICATE-----', '')
-      .replace('-----END CERTIFICATE-----', '')
-      .replace(/\s/g, '');
-
-    // Crear envelope SOAP para WSAA
-    const soapEnvelope = `<?xml version="1.0" encoding="UTF-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wsaa="http://wsaa.view.sua.dvadac.desein.afip.gov">
-  <soapenv:Header/>
-  <soapenv:Body>
-    <wsaa:loginCms>
-      <wsaa:in0><![CDATA[${btoa(tra)}]]></wsaa:in0>
-    </wsaa:loginCms>
-  </soapenv:Body>
-</soapenv:Envelope>`;
-
-    // URL del WSAA según ambiente
     const wsaaUrl = ambiente === 'produccion'
       ? 'https://wsaa.afip.gov.ar/ws/services/LoginCms'
       : 'https://wsaahomo.afip.gov.ar/ws/services/LoginCms';
     
-    console.log('Llamando a WSAA:', wsaaUrl);
+    console.log('Enviando request a WSAA:', wsaaUrl);
+    
+    const soapRequest = `<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wsaa="http://wsaa.view.sua.dvadac.desein.afip.gov">
+<soapenv:Header/>
+<soapenv:Body>
+<wsaa:loginCms>
+<wsaa:in0>${cms}</wsaa:in0>
+</wsaa:loginCms>
+</soapenv:Body>
+</soapenv:Envelope>`;
     
     const response = await fetch(wsaaUrl, {
       method: 'POST',
@@ -97,27 +140,47 @@ async function obtenerTokenYSign(
         'Content-Type': 'text/xml; charset=utf-8',
         'SOAPAction': '',
       },
-      body: soapEnvelope,
+      body: soapRequest,
     });
 
+    const responseText = await response.text();
+    console.log('Respuesta WSAA status:', response.status);
+    console.log('Respuesta WSAA (primeros 500 chars):', responseText.substring(0, 500));
+    
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error en WSAA:', response.status, errorText);
-      throw new Error(`Error en WSAA: ${response.status}`);
+      console.error('Error WSAA response completa:', responseText);
+      throw new Error(`Error en WSAA: ${response.status} - ${responseText}`);
     }
 
-    const responseText = await response.text();
-    console.log('Respuesta WSAA recibida');
+    // Buscar el loginTicketResponse en la respuesta
+    let xmlContent = responseText;
+    
+    // Si viene como CDATA, extraerlo
+    const cdataMatch = responseText.match(/<!\[CDATA\[([\s\S]*?)\]\]>/);
+    if (cdataMatch) {
+      xmlContent = cdataMatch[1];
+    }
+    
+    // También puede venir escapado en el return
+    const returnMatch = responseText.match(/<loginCmsReturn[^>]*>([\s\S]*?)<\/loginCmsReturn>/);
+    if (returnMatch) {
+      xmlContent = returnMatch[1]
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"');
+    }
 
-    // Parsear respuesta para extraer token y sign
-    const tokenMatch = responseText.match(/<token>(.*?)<\/token>/s);
-    const signMatch = responseText.match(/<sign>(.*?)<\/sign>/s);
+    const tokenMatch = xmlContent.match(/<token>([\s\S]*?)<\/token>/);
+    const signMatch = xmlContent.match(/<sign>([\s\S]*?)<\/sign>/);
 
     if (!tokenMatch || !signMatch) {
-      console.error('Respuesta WSAA:', responseText);
-      throw new Error('No se pudo extraer token/sign de WSAA');
+      console.error('No se encontró token/sign en:', xmlContent);
+      throw new Error('No se pudo extraer token y sign de WSAA');
     }
 
+    console.log('Token y sign obtenidos correctamente');
+    
     return {
       token: tokenMatch[1].trim(),
       sign: signMatch[1].trim(),
@@ -141,6 +204,8 @@ async function consultarPadron(
       ? 'https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA5'
       : 'https://awshomo.afip.gov.ar/sr-padron/webservices/personaServiceA5';
 
+    const cuitEmisorLimpio = cuitEmisor.replace(/-/g, '');
+
     const soapBody = `<?xml version="1.0" encoding="UTF-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:per="http://a5.soap.ws.server.puc.sr/">
   <soap:Header/>
@@ -148,13 +213,14 @@ async function consultarPadron(
     <per:getPersona>
       <token>${token}</token>
       <sign>${sign}</sign>
-      <cuitRepresentada>${cuitEmisor}</cuitRepresentada>
+      <cuitRepresentada>${cuitEmisorLimpio}</cuitRepresentada>
       <idPersona>${cuitConsultar}</idPersona>
     </per:getPersona>
   </soap:Body>
 </soap:Envelope>`;
 
-    console.log('Consultando padrón AFIP para CUIT:', cuitConsultar);
+    console.log('Consultando padrón AFIP:', wsPadronUrl);
+    console.log('CUIT a consultar:', cuitConsultar);
 
     const response = await fetch(wsPadronUrl, {
       method: 'POST',
@@ -165,14 +231,14 @@ async function consultarPadron(
       body: soapBody,
     });
 
+    const responseText = await response.text();
+    console.log('Respuesta padrón status:', response.status);
+    console.log('Respuesta padrón (primeros 1000 chars):', responseText.substring(0, 1000));
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error en ws_sr_padron_a5:', response.status, errorText);
+      console.error('Error en ws_sr_padron_a5:', responseText);
       throw new Error(`Error en padrón AFIP: ${response.status}`);
     }
-
-    const responseText = await response.text();
-    console.log('Respuesta del padrón recibida');
 
     return parseRespuestaPadron(responseText);
   } catch (error) {
@@ -204,7 +270,7 @@ function parseRespuestaPadron(xml: string): any {
     
     domicilio = {
       calle: calleMatch ? calleMatch[1] : '',
-      numero: '', // La dirección completa viene en 'direccion'
+      numero: '',
       localidad: localidadMatch ? localidadMatch[1] : '',
       provincia: provinciaMatch ? mapearProvincia(provinciaMatch[1]) : '',
       codigoPostal: cpMatch ? cpMatch[1] : '',
@@ -235,16 +301,13 @@ function parseRespuestaPadron(xml: string): any {
       
       if (idImpMatch && estadoMatch && estadoMatch[1] === 'ACTIVO') {
         const idImpuesto = parseInt(idImpMatch[1]);
-        // 32 = IVA, 30 = Responsable Inscripto
         if (idImpuesto === 32 || idImpuesto === 30) {
           situacionAfip = 'Responsable Inscripto';
           break;
         }
-        // 20 = Monotributo
         if (idImpuesto === 20) {
           situacionAfip = 'Monotributista';
         }
-        // 34 = Exento
         if (idImpuesto === 34) {
           situacionAfip = 'Exento';
         }
@@ -338,7 +401,8 @@ Deno.serve(async (req) => {
       throw new Error('El CUIT debe tener 11 dígitos');
     }
 
-    console.log('Consultando padrón AFIP para CUIT:', cuitLimpio);
+    console.log('=== INICIO CONSULTA PADRON AFIP ===');
+    console.log('CUIT a consultar:', cuitLimpio);
 
     // Obtener configuración AFIP activa
     const { data: afipConfig, error: configError } = await supabase
@@ -382,12 +446,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Configuración AFIP encontrada:', {
-      cuit_emisor: afipConfig.cuit_emisor,
-      ambiente: afipConfig.ambiente,
-    });
+    console.log('Config AFIP encontrada, ambiente:', afipConfig.ambiente);
+    console.log('CUIT emisor:', afipConfig.cuit_emisor);
 
     // Obtener token y sign del WSAA para el servicio ws_sr_padron_a5
+    console.log('Obteniendo token y sign de WSAA para ws_sr_padron_a5...');
     const { token, sign } = await obtenerTokenYSign(
       afipConfig.certificado_crt,
       afipConfig.certificado_key,
@@ -405,6 +468,8 @@ Deno.serve(async (req) => {
       cuitLimpio,
       afipConfig.ambiente
     );
+
+    console.log('=== FIN CONSULTA PADRON AFIP ===');
 
     return new Response(
       JSON.stringify({
