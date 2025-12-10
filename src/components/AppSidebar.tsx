@@ -106,8 +106,8 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton className={`mx-2 ${isConfiguracionActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'}`}>
-                      <Settings className="h-4 w-4" />
-                      {!collapsed && <span className="ml-3 text-lg">Configuración</span>}
+                      <Settings className="h-4 w-4 text-secondary bg-primary" />
+                      {!collapsed && <span className="ml-3 text-lg text-primary-foreground">Configuración</span>}
                       {!collapsed && <ChevronDown className={`ml-auto h-4 w-4 transition-transform ${configuracionOpen ? 'rotate-180' : ''}`} />}
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
