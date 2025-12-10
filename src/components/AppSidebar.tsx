@@ -117,7 +117,7 @@ export function AppSidebar() {
                             <SidebarMenuSubButton asChild className={isActive(item.url) ? 'bg-sidebar-accent/50' : ''}>
                               <NavLink to={item.url}>
                                 <item.icon className="h-4 w-4" />
-                                <span className="ml-2 text-lg">{item.title}</span>
+                                <span className="ml-2 text-lg text-secondary-foreground">{item.title}</span>
                               </NavLink>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>)}
