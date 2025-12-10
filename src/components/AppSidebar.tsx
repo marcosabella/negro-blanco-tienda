@@ -115,7 +115,7 @@ export function AppSidebar() {
                       <SidebarMenuSub>
                         {configuracionItems.map(item => <SidebarMenuSubItem key={item.title}>
                             <SidebarMenuSubButton asChild className={isActive(item.url) ? 'bg-sidebar-accent/50' : ''}>
-                              <NavLink to={item.url}>
+                              <NavLink to={item.url} className="text-base">
                                 <item.icon className="h-4 w-4" />
                                 <span className="ml-2 text-lg text-secondary-foreground">{item.title}</span>
                               </NavLink>
@@ -141,7 +141,7 @@ export function AppSidebar() {
                             <SidebarMenuSubButton asChild className={isActive(item.url) ? 'bg-sidebar-accent/50' : ''}>
                               <NavLink to={item.url} className="text-secondary-foreground">
                                 <item.icon className="h-4 w-4" />
-                                <span className="ml-2 text-lg text-secondary-foreground">{item.title}</span>
+                                <span className="ml-2 text-secondary-foreground text-base">{item.title}</span>
                               </NavLink>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>)}
