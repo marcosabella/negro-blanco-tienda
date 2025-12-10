@@ -131,12 +131,12 @@ export function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* CUIT - Primer campo */}
           <div className="space-y-2">
-            <Label htmlFor="cuit">CUIT / DNI</Label>
+            <Label htmlFor="cuit">CUIT</Label>
             <div className="flex gap-2">
               <Input
                 id="cuit"
                 {...register('cuit')}
-                placeholder="XX-XXXXXXXX-X"
+                placeholder="20-12345678-9"
                 maxLength={13}
                 className="flex-1"
               />
@@ -160,9 +160,13 @@ export function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
               <p className="text-sm text-destructive">{String(errors.cuit.message)}</p>
             )}
             {!cliente && (
-              <p className="text-sm text-muted-foreground">
-                Ingrese el CUIT y presione "Buscar en AFIP" para completar los datos usando el certificado digital
-              </p>
+              <div className="text-sm text-muted-foreground space-y-1">
+                <p>Ingrese el CUIT completo (11 dígitos) con formato: <strong>XX-XXXXXXXX-X</strong></p>
+                <p className="text-xs">
+                  • Personas físicas: empiezan con <strong>20</strong>, <strong>23</strong>, <strong>24</strong> o <strong>27</strong><br />
+                  • Personas jurídicas: empiezan con <strong>30</strong>, <strong>33</strong> o <strong>34</strong>
+                </p>
+              </div>
             )}
           </div>
 
