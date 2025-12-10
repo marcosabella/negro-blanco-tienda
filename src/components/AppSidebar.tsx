@@ -135,13 +135,13 @@ export function AppSidebar() {
                       {!collapsed && <ChevronDown className={`ml-auto h-4 w-4 transition-transform ${listadosOpen ? 'rotate-180' : ''}`} />}
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
-                  {!collapsed && <CollapsibleContent>
+                  {!collapsed && <CollapsibleContent className="text-primary-foreground">
                       <SidebarMenuSub>
                         {listadosItems.map(item => <SidebarMenuSubItem key={item.title}>
                             <SidebarMenuSubButton asChild className={isActive(item.url) ? 'bg-sidebar-accent/50' : ''}>
                               <NavLink to={item.url} className="text-secondary-foreground">
                                 <item.icon className="h-4 w-4" />
-                                <span className="ml-2 text-lg">{item.title}</span>
+                                <span className="ml-2 text-lg text-secondary-foreground">{item.title}</span>
                               </NavLink>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>)}
