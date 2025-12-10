@@ -96,7 +96,7 @@ export function AppSidebar() {
               {menuItems.map(item => <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild className={`mx-2 ${isActive(item.url) ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'}`}>
                     <NavLink to={item.url} end className="font-thin text-lg text-secondary-foreground">
-                      <item.icon className="h-4 w-4" />
+                      <item.icon className="h-4 w-4 bg-neutral-900 text-neutral-100" />
                       {!collapsed && <span className="ml-3 text-lg text-primary-foreground">{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
