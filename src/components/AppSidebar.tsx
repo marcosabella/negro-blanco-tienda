@@ -139,7 +139,7 @@ export function AppSidebar() {
                       <SidebarMenuSub>
                         {listadosItems.map(item => <SidebarMenuSubItem key={item.title}>
                             <SidebarMenuSubButton asChild className={isActive(item.url) ? 'bg-sidebar-accent/50' : ''}>
-                              <NavLink to={item.url}>
+                              <NavLink to={item.url} className="text-secondary-foreground">
                                 <item.icon className="h-4 w-4" />
                                 <span className="ml-2 text-lg">{item.title}</span>
                               </NavLink>
