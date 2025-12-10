@@ -106,7 +106,7 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton className={`mx-2 ${isConfiguracionActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'}`}>
-                      <Settings className="h-4 w-4 text-secondary bg-primary" />
+                      <Settings className="h-4 w-4 bg-primary text-primary-foreground" />
                       {!collapsed && <span className="ml-3 text-lg text-primary-foreground bg-muted-foreground">Configuración</span>}
                       {!collapsed && <ChevronDown className={`ml-auto h-4 w-4 transition-transform ${configuracionOpen ? 'rotate-180' : ''}`} />}
                     </SidebarMenuButton>
@@ -130,8 +130,8 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton className={`mx-2 ${isListadosActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'}`}>
-                      <FileText className="h-4 w-[16px]" />
-                      {!collapsed && <span className="ml-3 font-normal text-lg">Listados</span>}
+                      <FileText className="h-4 w-[16px] text-primary-foreground" />
+                      {!collapsed && <span className="ml-3 font-normal text-lg text-primary-foreground">Listados</span>}
                       {!collapsed && <ChevronDown className={`ml-auto h-4 w-4 transition-transform ${listadosOpen ? 'rotate-180' : ''}`} />}
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
