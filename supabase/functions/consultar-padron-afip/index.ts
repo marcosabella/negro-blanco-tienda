@@ -44,29 +44,20 @@ function crearTRA(service: string): string {
 function firmarTRA(tra: string, certPem: string, keyPem: string): string {
   try {
     console.log('Iniciando firma del TRA...');
-    console.log('TRA a firmar:', tra);
     
-    // Normalizar los saltos de línea en los certificados
     const certNormalized = certPem.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     const keyNormalized = keyPem.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     
-    // Parsear certificado y clave privada
     const certificate = forge.pki.certificateFromPem(certNormalized);
     const privateKey = forge.pki.privateKeyFromPem(keyNormalized);
     
     console.log('Certificado CN:', certificate.subject.getField('CN')?.value);
     console.log('Certificado válido hasta:', certificate.validity.notAfter);
     
-    // Crear el mensaje PKCS#7 firmado
     const p7 = forge.pkcs7.createSignedData();
-    
-    // Agregar el contenido (TRA como bytes)
     p7.content = forge.util.createBuffer(tra, 'utf8');
-    
-    // Agregar el certificado del firmante
     p7.addCertificate(certificate);
     
-    // Agregar el firmante con SHA-256
     p7.addSigner({
       key: privateKey,
       certificate: certificate,
@@ -86,12 +77,10 @@ function firmarTRA(tra: string, certPem: string, keyPem: string): string {
       ]
     });
     
-    // Firmar
     p7.sign();
     
     console.log('TRA firmado correctamente');
     
-    // Convertir a DER y luego a Base64
     const asn1 = p7.toAsn1();
     const der = forge.asn1.toDer(asn1);
     const cms = forge.util.encode64(der.getBytes());
@@ -112,19 +101,18 @@ async function obtenerTokenYSign(
   service: string,
   ambiente: 'homologacion' | 'produccion'
 ): Promise<{ token: string; sign: string }> {
-  try {
-    const tra = crearTRA(service);
-    console.log('TRA creado');
-    
-    const cms = firmarTRA(tra, certPem, keyPem);
-    
-    const wsaaUrl = ambiente === 'produccion'
-      ? 'https://wsaa.afip.gov.ar/ws/services/LoginCms'
-      : 'https://wsaahomo.afip.gov.ar/ws/services/LoginCms';
-    
-    console.log('Enviando request a WSAA:', wsaaUrl);
-    
-    const soapRequest = `<?xml version="1.0" encoding="UTF-8"?>
+  const tra = crearTRA(service);
+  console.log('TRA creado');
+  
+  const cms = firmarTRA(tra, certPem, keyPem);
+  
+  const wsaaUrl = ambiente === 'produccion'
+    ? 'https://wsaa.afip.gov.ar/ws/services/LoginCms'
+    : 'https://wsaahomo.afip.gov.ar/ws/services/LoginCms';
+  
+  console.log('Enviando request a WSAA:', wsaaUrl);
+  
+  const soapRequest = `<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wsaa="http://wsaa.view.sua.dvadac.desein.afip.gov">
 <soapenv:Header/>
 <soapenv:Body>
@@ -133,65 +121,223 @@ async function obtenerTokenYSign(
 </wsaa:loginCms>
 </soapenv:Body>
 </soapenv:Envelope>`;
-    
-    const response = await fetch(wsaaUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'text/xml; charset=utf-8',
-        'SOAPAction': '',
-      },
-      body: soapRequest,
-    });
+  
+  const response = await fetch(wsaaUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/xml; charset=utf-8',
+      'SOAPAction': '',
+    },
+    body: soapRequest,
+  });
 
-    const responseText = await response.text();
-    console.log('Respuesta WSAA status:', response.status);
-    console.log('Respuesta WSAA (primeros 500 chars):', responseText.substring(0, 500));
-    
-    if (!response.ok) {
-      console.error('Error WSAA response completa:', responseText);
-      throw new Error(`Error en WSAA: ${response.status} - ${responseText}`);
-    }
-
-    // Buscar el loginTicketResponse en la respuesta
-    let xmlContent = responseText;
-    
-    // Si viene como CDATA, extraerlo
-    const cdataMatch = responseText.match(/<!\[CDATA\[([\s\S]*?)\]\]>/);
-    if (cdataMatch) {
-      xmlContent = cdataMatch[1];
-    }
-    
-    // También puede venir escapado en el return
-    const returnMatch = responseText.match(/<loginCmsReturn[^>]*>([\s\S]*?)<\/loginCmsReturn>/);
-    if (returnMatch) {
-      xmlContent = returnMatch[1]
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&amp;/g, '&')
-        .replace(/&quot;/g, '"');
-    }
-
-    const tokenMatch = xmlContent.match(/<token>([\s\S]*?)<\/token>/);
-    const signMatch = xmlContent.match(/<sign>([\s\S]*?)<\/sign>/);
-
-    if (!tokenMatch || !signMatch) {
-      console.error('No se encontró token/sign en:', xmlContent);
-      throw new Error('No se pudo extraer token y sign de WSAA');
-    }
-
-    console.log('Token y sign obtenidos correctamente');
-    
-    return {
-      token: tokenMatch[1].trim(),
-      sign: signMatch[1].trim(),
-    };
-  } catch (error) {
-    console.error('Error en obtenerTokenYSign:', error);
-    throw error;
+  const responseText = await response.text();
+  console.log('Respuesta WSAA status:', response.status);
+  
+  if (!response.ok) {
+    console.error('Error WSAA:', responseText.substring(0, 500));
+    throw new Error(`Error en WSAA: ${response.status} - IP no autorizada`);
   }
+
+  let xmlContent = responseText;
+  
+  const cdataMatch = responseText.match(/<!\[CDATA\[([\s\S]*?)\]\]>/);
+  if (cdataMatch) {
+    xmlContent = cdataMatch[1];
+  }
+  
+  const returnMatch = responseText.match(/<loginCmsReturn[^>]*>([\s\S]*?)<\/loginCmsReturn>/);
+  if (returnMatch) {
+    xmlContent = returnMatch[1]
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"');
+  }
+
+  const tokenMatch = xmlContent.match(/<token>([\s\S]*?)<\/token>/);
+  const signMatch = xmlContent.match(/<sign>([\s\S]*?)<\/sign>/);
+
+  if (!tokenMatch || !signMatch) {
+    throw new Error('No se pudo extraer token y sign de WSAA');
+  }
+
+  console.log('Token y sign obtenidos correctamente');
+  
+  return {
+    token: tokenMatch[1].trim(),
+    sign: signMatch[1].trim(),
+  };
 }
 
-// Consultar padrón AFIP (ws_sr_padron_a5)
+// ==========================================
+// FALLBACK: APIs Públicas
+// ==========================================
+
+// Consultar API pública de AFIP (cuitonline.com)
+async function consultarAPIsPublicas(cuit: string): Promise<any> {
+  console.log('=== Intentando APIs públicas como fallback ===');
+  
+  // Intentar múltiples fuentes
+  const apis = [
+    { name: 'cuitonline', fn: () => consultarCuitOnline(cuit) },
+    { name: 'afip.tangofactura', fn: () => consultarTangoFactura(cuit) },
+  ];
+
+  for (const api of apis) {
+    try {
+      console.log(`Intentando ${api.name}...`);
+      const resultado = await api.fn();
+      if (resultado && (resultado.nombre || resultado.razonSocial)) {
+        console.log(`${api.name} retornó datos válidos`);
+        return resultado;
+      }
+    } catch (error) {
+      console.log(`${api.name} falló:`, error.message);
+    }
+  }
+
+  return null;
+}
+
+// Consultar cuitonline.com
+async function consultarCuitOnline(cuit: string): Promise<any> {
+  const response = await fetch(`https://www.cuitonline.com/search.php?q=${cuit}`, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const html = await response.text();
+  return parseCuitOnlineHTML(html, cuit);
+}
+
+// Parsear HTML de cuitonline
+function parseCuitOnlineHTML(html: string, cuit: string): any {
+  const tipoPersona = detectarTipoPersona(cuit);
+  
+  // Buscar nombre/razón social
+  const nombreMatch = html.match(/<h2[^>]*class="denominacion"[^>]*>([^<]+)<\/h2>/i) 
+    || html.match(/<div[^>]*class="denominacion"[^>]*>([^<]+)<\/div>/i)
+    || html.match(/<td[^>]*>Denominaci[oó]n[^<]*<\/td>\s*<td[^>]*>([^<]+)<\/td>/i);
+  
+  const nombreCompleto = nombreMatch ? nombreMatch[1].trim() : '';
+  
+  // Buscar condición IVA
+  const ivaMatch = html.match(/Responsable\s+Inscripto/i) ? 'Responsable Inscripto'
+    : html.match(/Monotribut/i) ? 'Monotributista'
+    : html.match(/Exento/i) ? 'Exento'
+    : 'Consumidor Final';
+
+  // Buscar dirección
+  const direccionMatch = html.match(/<td[^>]*>Direcci[oó]n[^<]*<\/td>\s*<td[^>]*>([^<]+)<\/td>/i);
+  const localidadMatch = html.match(/<td[^>]*>Localidad[^<]*<\/td>\s*<td[^>]*>([^<]+)<\/td>/i);
+  const provinciaMatch = html.match(/<td[^>]*>Provincia[^<]*<\/td>\s*<td[^>]*>([^<]+)<\/td>/i);
+  const cpMatch = html.match(/<td[^>]*>C[oó]digo\s*Postal[^<]*<\/td>\s*<td[^>]*>([^<]+)<\/td>/i);
+
+  if (!nombreCompleto) {
+    throw new Error('No se encontró información en cuitonline');
+  }
+
+  let nombre = '';
+  let apellido = '';
+  
+  if (tipoPersona === 'fisica') {
+    const partes = nombreCompleto.split(/\s+/);
+    if (partes.length >= 2) {
+      apellido = partes[0];
+      nombre = partes.slice(1).join(' ');
+    } else {
+      nombre = nombreCompleto;
+    }
+  }
+
+  return {
+    nombre: tipoPersona === 'fisica' ? nombre : nombreCompleto,
+    apellido: tipoPersona === 'fisica' ? apellido : '',
+    razonSocial: tipoPersona === 'juridica' ? nombreCompleto : '',
+    tipoPersona,
+    situacionAfip: ivaMatch,
+    domicilioFiscal: {
+      calle: direccionMatch ? direccionMatch[1].trim() : '',
+      numero: '',
+      localidad: localidadMatch ? localidadMatch[1].trim() : '',
+      provincia: provinciaMatch ? provinciaMatch[1].trim() : '',
+      codigoPostal: cpMatch ? cpMatch[1].trim() : '',
+    },
+    fuente: 'cuitonline',
+  };
+}
+
+// Consultar tangofactura API (alternativa)
+async function consultarTangoFactura(cuit: string): Promise<any> {
+  const response = await fetch(`https://afip.tangofactura.com/Rest/GetContribuyente?cuit=${cuit}`, {
+    headers: {
+      'Accept': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+  
+  if (!data || data.error || !data.Contribuyente) {
+    throw new Error('No se encontró información');
+  }
+
+  const contrib = data.Contribuyente;
+  const tipoPersona = detectarTipoPersona(cuit);
+
+  let nombre = '';
+  let apellido = '';
+  const razonSocial = contrib.RazonSocial || contrib.razonSocial || '';
+
+  if (tipoPersona === 'fisica' && razonSocial) {
+    const partes = razonSocial.split(/\s+/);
+    if (partes.length >= 2) {
+      apellido = partes[0];
+      nombre = partes.slice(1).join(' ');
+    } else {
+      nombre = razonSocial;
+    }
+  }
+
+  return {
+    nombre: tipoPersona === 'fisica' ? nombre : razonSocial,
+    apellido: tipoPersona === 'fisica' ? apellido : '',
+    razonSocial: tipoPersona === 'juridica' ? razonSocial : '',
+    tipoPersona,
+    situacionAfip: mapearCondicionIVA(contrib.TipoResponsable || contrib.tipoResponsable || ''),
+    domicilioFiscal: {
+      calle: contrib.Domicilio || contrib.domicilio || '',
+      numero: '',
+      localidad: contrib.Localidad || contrib.localidad || '',
+      provincia: contrib.Provincia || contrib.provincia || '',
+      codigoPostal: contrib.CodigoPostal || contrib.codigoPostal || '',
+    },
+    fuente: 'tangofactura',
+  };
+}
+
+function mapearCondicionIVA(condicion: string): string {
+  const upper = (condicion || '').toUpperCase();
+  if (upper.includes('RESPONSABLE INSCRIPTO') || upper.includes('RI')) return 'Responsable Inscripto';
+  if (upper.includes('MONOTRIBUTO') || upper.includes('MT')) return 'Monotributista';
+  if (upper.includes('EXENTO') || upper.includes('EX')) return 'Exento';
+  return 'Consumidor Final';
+}
+
+// ==========================================
+// Consultar padrón AFIP oficial (ws_sr_padron_a5)
+// ==========================================
+
 async function consultarPadron(
   token: string,
   sign: string,
@@ -199,65 +345,52 @@ async function consultarPadron(
   cuitConsultar: string,
   ambiente: 'homologacion' | 'produccion'
 ): Promise<any> {
-  try {
-    const wsPadronUrl = ambiente === 'produccion'
-      ? 'https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA5'
-      : 'https://awshomo.afip.gov.ar/sr-padron/webservices/personaServiceA5';
+  const wsPadronUrl = ambiente === 'produccion'
+    ? 'https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA5'
+    : 'https://awshomo.afip.gov.ar/sr-padron/webservices/personaServiceA5';
 
-    const cuitEmisorLimpio = cuitEmisor.replace(/-/g, '');
+  const cuitEmisorLimpio = cuitEmisor.replace(/-/g, '');
 
-    const soapBody = `<?xml version="1.0" encoding="UTF-8"?>
+  const soapBody = `<?xml version="1.0" encoding="UTF-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:per="http://a5.soap.ws.server.puc.sr/">
-  <soap:Header/>
-  <soap:Body>
-    <per:getPersona>
-      <token>${token}</token>
-      <sign>${sign}</sign>
-      <cuitRepresentada>${cuitEmisorLimpio}</cuitRepresentada>
-      <idPersona>${cuitConsultar}</idPersona>
-    </per:getPersona>
-  </soap:Body>
+<soap:Header/>
+<soap:Body>
+<per:getPersona>
+<token>${token}</token>
+<sign>${sign}</sign>
+<cuitRepresentada>${cuitEmisorLimpio}</cuitRepresentada>
+<idPersona>${cuitConsultar}</idPersona>
+</per:getPersona>
+</soap:Body>
 </soap:Envelope>`;
 
-    console.log('Consultando padrón AFIP:', wsPadronUrl);
-    console.log('CUIT a consultar:', cuitConsultar);
+  console.log('Consultando padrón AFIP:', wsPadronUrl);
 
-    const response = await fetch(wsPadronUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'text/xml; charset=utf-8',
-        'SOAPAction': '',
-      },
-      body: soapBody,
-    });
+  const response = await fetch(wsPadronUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/xml; charset=utf-8',
+      'SOAPAction': '',
+    },
+    body: soapBody,
+  });
 
-    const responseText = await response.text();
-    console.log('Respuesta padrón status:', response.status);
-    console.log('Respuesta padrón (primeros 1000 chars):', responseText.substring(0, 1000));
+  const responseText = await response.text();
+  console.log('Respuesta padrón status:', response.status);
 
-    if (!response.ok) {
-      console.error('Error en ws_sr_padron_a5:', responseText);
-      throw new Error(`Error en padrón AFIP: ${response.status}`);
-    }
-
-    return parseRespuestaPadron(responseText);
-  } catch (error) {
-    console.error('Error en consultarPadron:', error);
-    throw error;
+  if (!response.ok) {
+    throw new Error(`Error en padrón AFIP: ${response.status}`);
   }
+
+  return parseRespuestaPadron(responseText);
 }
 
-// Parsear respuesta XML del padrón AFIP
 function parseRespuestaPadron(xml: string): any {
-  console.log('Parseando respuesta del padrón...');
-  
-  // Extraer datos de persona
   const tipoPersonaMatch = xml.match(/<tipoPersona>(.*?)<\/tipoPersona>/);
   const nombreMatch = xml.match(/<nombre>(.*?)<\/nombre>/);
   const apellidoMatch = xml.match(/<apellido>(.*?)<\/apellido>/);
   const razonSocialMatch = xml.match(/<razonSocial>(.*?)<\/razonSocial>/);
   
-  // Domicilio fiscal
   const domicilioSection = xml.match(/<domicilioFiscal>(.*?)<\/domicilioFiscal>/s);
   let domicilio: any = {};
   
@@ -276,7 +409,6 @@ function parseRespuestaPadron(xml: string): any {
       codigoPostal: cpMatch ? cpMatch[1] : '',
     };
     
-    // Intentar separar calle y número
     if (calleMatch) {
       const direccion = calleMatch[1];
       const match = direccion.match(/^(.+?)\s+(\d+)$/);
@@ -290,7 +422,6 @@ function parseRespuestaPadron(xml: string): any {
     }
   }
 
-  // Condición IVA / Situación AFIP
   const impuestosSection = xml.match(/<impuesto>(.*?)<\/impuesto>/gs);
   let situacionAfip = 'Consumidor Final';
   
@@ -315,7 +446,6 @@ function parseRespuestaPadron(xml: string): any {
     }
   }
 
-  // Categoría monotributo
   const categoriaMonoMatch = xml.match(/<categoriaMonotributo>(.*?)<\/categoriaMonotributo>/);
   if (categoriaMonoMatch && situacionAfip === 'Monotributista') {
     situacionAfip = `Monotributista Cat. ${categoriaMonoMatch[1]}`;
@@ -324,7 +454,7 @@ function parseRespuestaPadron(xml: string): any {
   const tipoPersona = tipoPersonaMatch?.[1] || '';
   const esPersonaFisica = tipoPersona === 'FISICA';
 
-  const resultado = {
+  return {
     nombre: esPersonaFisica 
       ? (nombreMatch?.[1] || '') 
       : (razonSocialMatch?.[1] || nombreMatch?.[1] || ''),
@@ -333,13 +463,10 @@ function parseRespuestaPadron(xml: string): any {
     tipoPersona: esPersonaFisica ? 'fisica' : 'juridica',
     situacionAfip,
     domicilioFiscal: domicilio,
+    fuente: 'afip_oficial',
   };
-
-  console.log('Datos parseados:', JSON.stringify(resultado, null, 2));
-  return resultado;
 }
 
-// Mapear nombre de provincia AFIP a formato estándar
 function mapearProvincia(provinciaAfip: string): string {
   const mapeo: Record<string, string> = {
     'CIUDAD AUTONOMA BUENOS AIRES': 'Ciudad Autónoma de Buenos Aires',
@@ -372,11 +499,14 @@ function mapearProvincia(provinciaAfip: string): string {
   return mapeo[upper] || provinciaAfip;
 }
 
-// Detectar tipo de persona por prefijo del CUIT
 function detectarTipoPersona(cuit: string): 'fisica' | 'juridica' {
   const prefijo = cuit.substring(0, 2);
   return ['30', '33', '34'].includes(prefijo) ? 'juridica' : 'fisica';
 }
+
+// ==========================================
+// Handler principal
+// ==========================================
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -394,18 +524,17 @@ Deno.serve(async (req) => {
       throw new Error('CUIT es requerido');
     }
 
-    // Limpiar CUIT (quitar guiones y espacios)
     const cuitLimpio = cuit.replace(/[-\s]/g, '');
     
     if (cuitLimpio.length !== 11) {
       throw new Error('El CUIT debe tener 11 dígitos');
     }
 
-    console.log('=== INICIO CONSULTA PADRON AFIP ===');
+    console.log('=== INICIO CONSULTA PADRON ===');
     console.log('CUIT a consultar:', cuitLimpio);
 
-    // Obtener configuración AFIP activa
-    const { data: afipConfig, error: configError } = await supabase
+    // Obtener configuración AFIP
+    const { data: afipConfig } = await supabase
       .from('afip_config')
       .select('*')
       .eq('activo', true)
@@ -413,78 +542,88 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    if (configError || !afipConfig) {
-      console.error('No hay configuración AFIP activa');
-      const tipoPersona = detectarTipoPersona(cuitLimpio);
+    let usarAPIOficial = false;
+    let errorOficial = '';
+
+    // Intentar webservice oficial si hay configuración
+    if (afipConfig?.certificado_crt && afipConfig?.certificado_key) {
+      console.log('Intentando webservice oficial AFIP...');
+      try {
+        const { token, sign } = await obtenerTokenYSign(
+          afipConfig.certificado_crt,
+          afipConfig.certificado_key,
+          'ws_sr_padron_a5',
+          afipConfig.ambiente
+        );
+
+        const datosPersona = await consultarPadron(
+          token,
+          sign,
+          afipConfig.cuit_emisor,
+          cuitLimpio,
+          afipConfig.ambiente
+        );
+
+        console.log('=== DATOS OBTENIDOS DE AFIP OFICIAL ===');
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: datosPersona,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (error) {
+        console.log('Webservice oficial falló:', error.message);
+        errorOficial = error.message;
+        // Continuar con fallback
+      }
+    } else {
+      console.log('Sin configuración AFIP, usando APIs públicas directamente');
+    }
+
+    // Fallback: APIs públicas
+    console.log('=== USANDO APIs PÚBLICAS COMO FALLBACK ===');
+    const datosPublicos = await consultarAPIsPublicas(cuitLimpio);
+
+    if (datosPublicos) {
+      console.log('Datos obtenidos de API pública:', datosPublicos.fuente);
       return new Response(
         JSON.stringify({
-          success: false,
-          error: 'No hay configuración AFIP activa. Configure el módulo AFIP primero.',
-          tipoPersona,
+          success: true,
+          data: datosPublicos,
+          advertencia: errorOficial 
+            ? 'El webservice oficial no está disponible. Datos obtenidos de fuente alternativa.' 
+            : 'Datos obtenidos de fuente alternativa (sin certificado AFIP configurado).',
         }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Validar certificados
-    if (!afipConfig.certificado_crt || !afipConfig.certificado_key) {
-      console.error('Certificados no configurados');
-      const tipoPersona = detectarTipoPersona(cuitLimpio);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Los certificados AFIP no están configurados. Cargue el certificado y clave privada.',
-          tipoPersona,
-        }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    console.log('Config AFIP encontrada, ambiente:', afipConfig.ambiente);
-    console.log('CUIT emisor:', afipConfig.cuit_emisor);
-
-    // Obtener token y sign del WSAA para el servicio ws_sr_padron_a5
-    console.log('Obteniendo token y sign de WSAA para ws_sr_padron_a5...');
-    const { token, sign } = await obtenerTokenYSign(
-      afipConfig.certificado_crt,
-      afipConfig.certificado_key,
-      'ws_sr_padron_a5',
-      afipConfig.ambiente
-    );
-
-    console.log('Token y Sign obtenidos para ws_sr_padron_a5');
-
-    // Consultar el padrón
-    const datosPersona = await consultarPadron(
-      token,
-      sign,
-      afipConfig.cuit_emisor,
-      cuitLimpio,
-      afipConfig.ambiente
-    );
-
-    console.log('=== FIN CONSULTA PADRON AFIP ===');
+    // Si todo falla, retornar tipo de persona detectado
+    const tipoPersona = detectarTipoPersona(cuitLimpio);
+    console.log('No se pudieron obtener datos, tipo detectado:', tipoPersona);
 
     return new Response(
       JSON.stringify({
-        success: true,
-        data: datosPersona,
+        success: false,
+        error: 'No se pudieron obtener datos del contribuyente. Complete los datos manualmente.',
+        tipoPersona,
+        data: {
+          nombre: '',
+          apellido: '',
+          tipoPersona,
+          situacionAfip: '',
+        },
       }),
       { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
 
   } catch (error: any) {
     console.error('Error en consultar-padron-afip:', error);
     
-    // Intentar detectar tipo de persona aunque falle la consulta
     let tipoPersona: 'fisica' | 'juridica' = 'fisica';
     try {
       const body = await req.clone().json();
@@ -497,11 +636,17 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message || 'Error al consultar el padrón AFIP',
+        error: error.message || 'Error al consultar',
         tipoPersona,
+        data: {
+          nombre: '',
+          apellido: '',
+          tipoPersona,
+          situacionAfip: '',
+        },
       }),
       { 
-        status: 500,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );

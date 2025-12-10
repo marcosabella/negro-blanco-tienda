@@ -64,13 +64,13 @@ export function useConsultarArca() {
       }
 
       if (!data || !data.success) {
-        const tipoPersona = data?.tipoPersona || detectarTipoPersona(cuit);
+        const tipoPersona = data?.tipoPersona || data?.data?.tipoPersona || detectarTipoPersona(cuit);
         toast({
-          title: "No se pudo consultar AFIP",
+          title: "No se pudo consultar",
           description: data?.error || `Complete los datos manualmente. Tipo: persona ${tipoPersona === 'juridica' ? 'jurídica' : 'física'}.`,
           variant: "destructive",
         });
-        return {
+        return data?.data || {
           nombre: '',
           apellido: '',
           tipoPersona,
@@ -78,10 +78,18 @@ export function useConsultarArca() {
         };
       }
 
-      toast({
-        title: "Datos obtenidos de AFIP",
-        description: "Se completaron los datos desde el padrón oficial de AFIP",
-      });
+      // Mostrar advertencia si viene de API pública
+      if (data.advertencia) {
+        toast({
+          title: "Datos obtenidos",
+          description: data.advertencia,
+        });
+      } else {
+        toast({
+          title: "Datos obtenidos de AFIP",
+          description: `Se completaron los datos desde ${data.data?.fuente === 'afip_oficial' ? 'el padrón oficial de AFIP' : 'fuente alternativa'}`,
+        });
+      }
 
       return data.data as DatosArca;
 
