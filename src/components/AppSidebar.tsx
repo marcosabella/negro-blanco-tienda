@@ -97,7 +97,7 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild className={`mx-2 ${isActive(item.url) ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'}`}>
                     <NavLink to={item.url} end className="font-thin text-lg">
                       <item.icon className="h-4 w-4" />
-                      {!collapsed && <span className="ml-3">{item.title}</span>}
+                      {!collapsed && <span className="ml-3 text-lg">{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>)}
