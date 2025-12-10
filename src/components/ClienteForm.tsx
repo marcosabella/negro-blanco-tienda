@@ -10,13 +10,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useCreateCliente, useUpdateCliente } from '@/hooks/useClientes';
 import { useConsultarArca } from '@/hooks/useConsultarArca';
 import { Cliente, SITUACIONES_AFIP, PROVINCIAS_ARGENTINA } from '@/types/cliente';
-import { validateCUIT, validateEmail, validatePhone } from '@/utils/validations';
+import { validateCUIT, validateEmail, validatePhone, esDNI, formatCUIT } from '@/utils/validations';
 import { Search, Loader2 } from 'lucide-react';
 
 const clienteSchema = z.object({
   nombre: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
   apellido: z.string().min(2, 'El apellido debe tener al menos 2 caracteres'),
-  cuit: z.string().refine(validateCUIT, 'CUIT inválido'),
+  cuit: z.string().refine((val) => {
+    const limpio = val.replace(/[-\s]/g, '');
+    // Aceptar DNI (7-8 dígitos) o CUIT (11 dígitos válido)
+    if (limpio.length >= 7 && limpio.length <= 8) return true;
+    if (limpio.length === 11) return validateCUIT(val);
+    return false;
+  }, 'Ingrese un DNI (7-8 dígitos) o CUIT válido (11 dígitos)'),
   calle: z.string().min(3, 'La calle debe tener al menos 3 caracteres'),
   numero: z.string().min(1, 'El número es requerido'),
   codigo_postal: z.string().min(4, 'Código postal inválido'),
@@ -72,14 +78,19 @@ export function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
   const watchedTipoPersona = watch('tipo_persona');
 
   const handleConsultarArca = async () => {
-    const cuit = getValues('cuit');
-    const datos = await consultarCuit(cuit);
+    const valor = getValues('cuit');
+    const datos = await consultarCuit(valor);
     
     if (datos) {
       setValue('tipo_persona', datos.tipoPersona);
       if (datos.nombre) setValue('nombre', datos.nombre);
       if (datos.apellido) setValue('apellido', datos.apellido);
       if (datos.situacionAfip) setValue('situacion_afip', datos.situacionAfip);
+      
+      // Si se encontró el CUIT desde un DNI, actualizar el campo
+      if (datos.cuitEncontrado) {
+        setValue('cuit', formatCUIT(datos.cuitEncontrado));
+      }
       
       if (datos.domicilioFiscal) {
         if (datos.domicilioFiscal.calle) setValue('calle', datos.domicilioFiscal.calle);
@@ -129,14 +140,14 @@ export function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* CUIT - Primer campo */}
+          {/* CUIT/DNI - Primer campo */}
           <div className="space-y-2">
-            <Label htmlFor="cuit">CUIT</Label>
+            <Label htmlFor="cuit">CUIT o DNI</Label>
             <div className="flex gap-2">
               <Input
                 id="cuit"
                 {...register('cuit')}
-                placeholder="20-12345678-9"
+                placeholder="DNI: 12345678 o CUIT: 20-12345678-9"
                 maxLength={13}
                 className="flex-1"
               />
@@ -152,7 +163,7 @@ export function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
                   ) : (
                     <Search className="h-4 w-4" />
                   )}
-                  <span className="ml-2">Buscar en AFIP</span>
+                  <span className="ml-2">Buscar</span>
                 </Button>
               )}
             </div>
@@ -160,12 +171,8 @@ export function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
               <p className="text-sm text-destructive">{String(errors.cuit.message)}</p>
             )}
             {!cliente && (
-              <div className="text-sm text-muted-foreground space-y-1">
-                <p>Ingrese el CUIT completo (11 dígitos) con formato: <strong>XX-XXXXXXXX-X</strong></p>
-                <p className="text-xs">
-                  • Personas físicas: empiezan con <strong>20</strong>, <strong>23</strong>, <strong>24</strong> o <strong>27</strong><br />
-                  • Personas jurídicas: empiezan con <strong>30</strong>, <strong>33</strong> o <strong>34</strong>
-                </p>
+              <div className="text-sm text-muted-foreground">
+                <p>Ingrese <strong>DNI</strong> (7-8 dígitos) o <strong>CUIT</strong> (11 dígitos) y presione Buscar</p>
               </div>
             )}
           </div>

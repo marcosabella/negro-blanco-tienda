@@ -1,3 +1,42 @@
+// Prefijos válidos para CUIT de personas físicas
+export const PREFIJOS_PERSONA_FISICA = ['20', '23', '24', '27'];
+// Prefijos válidos para CUIT de personas jurídicas
+export const PREFIJOS_PERSONA_JURIDICA = ['30', '33', '34'];
+
+// Calcular dígito verificador de CUIT
+export function calcularDigitoVerificador(cuitSinDigito: string): number {
+  const digits = cuitSinDigito.split('').map(Number);
+  const multipliers = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  const sum = digits.reduce((acc, digit, index) => {
+    return acc + digit * multipliers[index];
+  }, 0);
+  
+  const remainder = sum % 11;
+  return remainder < 2 ? remainder : 11 - remainder;
+}
+
+// Generar CUIT a partir de DNI
+export function generarCUITsDesdeDNI(dni: string): string[] {
+  // Limpiar y padear el DNI a 8 dígitos
+  const dniLimpio = dni.replace(/\D/g, '').padStart(8, '0');
+  
+  if (dniLimpio.length > 8) {
+    return [];
+  }
+  
+  const cuits: string[] = [];
+  
+  // Probar con todos los prefijos de persona física
+  for (const prefijo of PREFIJOS_PERSONA_FISICA) {
+    const cuitBase = prefijo + dniLimpio;
+    const digito = calcularDigitoVerificador(cuitBase);
+    const cuit = cuitBase + digito;
+    cuits.push(cuit);
+  }
+  
+  return cuits;
+}
+
 // Validación de CUIT argentino
 export function validateCUIT(cuit: string): boolean {
   // Remover guiones y espacios
@@ -21,6 +60,13 @@ export function validateCUIT(cuit: string): boolean {
   const calculatedCheckDigit = remainder < 2 ? remainder : 11 - remainder;
   
   return checkDigit === calculatedCheckDigit;
+}
+
+// Detectar si es DNI o CUIT
+export function esDNI(valor: string): boolean {
+  const limpio = valor.replace(/[-\s]/g, '');
+  // Es DNI si tiene entre 7 y 8 dígitos
+  return /^\d{7,8}$/.test(limpio);
 }
 
 // Formatear CUIT con guiones
