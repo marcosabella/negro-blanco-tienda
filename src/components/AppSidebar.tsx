@@ -92,10 +92,10 @@ export function AppSidebar() {
           </SidebarGroupLabel>
 
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="opacity-100">
               {menuItems.map(item => <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild className={`mx-2 ${isActive(item.url) ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'}`}>
-                    <NavLink to={item.url} end>
+                    <NavLink to={item.url} end className="font-thin text-lg">
                       <item.icon className="h-4 w-4" />
                       {!collapsed && <span className="ml-3">{item.title}</span>}
                     </NavLink>
@@ -107,7 +107,7 @@ export function AppSidebar() {
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton className={`mx-2 ${isConfiguracionActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'}`}>
                       <Settings className="h-4 w-4" />
-                      {!collapsed && <span className="ml-3">Configuración</span>}
+                      {!collapsed && <span className="ml-3 text-lg">Configuración</span>}
                       {!collapsed && <ChevronDown className={`ml-auto h-4 w-4 transition-transform ${configuracionOpen ? 'rotate-180' : ''}`} />}
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
@@ -130,8 +130,8 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton className={`mx-2 ${isListadosActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'}`}>
-                      <FileText className="h-4 w-4" />
-                      {!collapsed && <span className="ml-3">Listados</span>}
+                      <FileText className="h-4 w-[16px]" />
+                      {!collapsed && <span className="ml-3 font-normal text-lg">Listados</span>}
                       {!collapsed && <ChevronDown className={`ml-auto h-4 w-4 transition-transform ${listadosOpen ? 'rotate-180' : ''}`} />}
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
