@@ -1,4 +1,4 @@
-import { Users, Truck, Package, ShoppingCart, CreditCard, Building2, FileText, ChevronDown, Settings, Store, FileKey, Receipt } from "lucide-react";
+import { Users, Truck, Package, ShoppingCart, CreditCard, Building2, FileText, ChevronDown, Store, FileKey, Receipt, Settings } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubItem, SidebarMenuSubButton, useSidebar } from "@/components/ui/sidebar";
@@ -106,7 +106,7 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton className={`mx-2 ${isConfiguracionActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'}`}>
-                      <Settings className="h-4 w-4 bg-primary text-primary-foreground" />
+                      <Settings className="h-4 w-4 bg-neutral-900 text-primary-foreground" />
                       {!collapsed && <span className="ml-3 text-lg text-primary-foreground bg-muted-foreground">Configuración</span>}
                       {!collapsed && <ChevronDown className={`ml-auto h-4 w-4 transition-transform ${configuracionOpen ? 'rotate-180' : ''}`} />}
                     </SidebarMenuButton>
