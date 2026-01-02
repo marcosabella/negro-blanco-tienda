@@ -200,8 +200,9 @@ async function consultarAPIsPublicas(cuit: string): Promise<any> {
   return null;
 }
 
-// Consultar cuitonline.com
+// Consultar cuitonline.com - Versión actualizada 2026-01-02
 async function consultarCuitOnline(cuit: string): Promise<any> {
+  console.log('=== Consultando cuitonline.com ===');
   const response = await fetch(`https://www.cuitonline.com/search.php?q=${cuit}`, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -214,6 +215,11 @@ async function consultarCuitOnline(cuit: string): Promise<any> {
   }
 
   const html = await response.text();
+  
+  // Log para debug - buscar el patrón IVA en el HTML
+  const ivaSection = html.match(/IVA[^<]{0,100}/gi);
+  console.log('Secciones IVA encontradas en HTML:', ivaSection);
+  
   return parseCuitOnlineHTML(html, cuit);
 }
 
