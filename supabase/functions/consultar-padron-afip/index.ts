@@ -228,11 +228,53 @@ function parseCuitOnlineHTML(html: string, cuit: string): any {
   
   const nombreCompleto = nombreMatch ? nombreMatch[1].trim() : '';
   
-  // Buscar condición IVA
-  const ivaMatch = html.match(/Responsable\s+Inscripto/i) ? 'Responsable Inscripto'
-    : html.match(/Monotribut/i) ? 'Monotributista'
-    : html.match(/Exento/i) ? 'Exento'
-    : 'Consumidor Final';
+  // Buscar condición IVA - Mejorado para capturar el valor real
+  let situacionAfip = '';
+  
+  // Buscar en tabla de datos fiscales con el campo específico
+  const condicionIvaMatch = html.match(/Condici[oó]n\s+(?:frente\s+al\s+)?IVA[^<]*<\/td>\s*<td[^>]*>([^<]+)<\/td>/i)
+    || html.match(/Condici[oó]n\s+IVA[^:]*:\s*([^<\n]+)/i)
+    || html.match(/<span[^>]*class="[^"]*iva[^"]*"[^>]*>([^<]+)<\/span>/i)
+    || html.match(/IVA[^:]*:\s*<[^>]+>([^<]+)</i);
+  
+  if (condicionIvaMatch) {
+    const condicion = condicionIvaMatch[1].trim().toUpperCase();
+    console.log('Condición IVA encontrada en HTML:', condicion);
+    
+    if (condicion.includes('RESPONSABLE INSCRIPTO') || condicion === 'RI') {
+      situacionAfip = 'Responsable Inscripto';
+    } else if (condicion.includes('MONOTRIBUTO') || condicion.includes('MONOTRIBUTISTA') || condicion === 'MT') {
+      situacionAfip = 'Monotributista';
+    } else if (condicion.includes('EXENTO') || condicion === 'EX') {
+      situacionAfip = 'Exento';
+    } else if (condicion.includes('NO RESPONSABLE')) {
+      situacionAfip = 'No Responsable';
+    } else if (condicion.includes('CONSUMIDOR FINAL') || condicion === 'CF') {
+      situacionAfip = 'Consumidor Final';
+    } else {
+      // Usar el valor tal cual si no coincide con ninguno conocido
+      situacionAfip = condicionIvaMatch[1].trim();
+    }
+  } else {
+    // Fallback: buscar en cualquier parte del HTML pero solo si está en contexto fiscal
+    const htmlLower = html.toLowerCase();
+    
+    // Verificar si hay una sección de datos fiscales y buscar allí
+    const datosFiscalesSection = html.match(/datos?\s*fiscales?.*?(?=<\/table|<\/div>|$)/is);
+    const searchArea = datosFiscalesSection ? datosFiscalesSection[0] : html;
+    
+    if (/responsable\s+inscripto/i.test(searchArea)) {
+      situacionAfip = 'Responsable Inscripto';
+    } else if (/monotribut/i.test(searchArea)) {
+      situacionAfip = 'Monotributista';
+    } else if (/exento/i.test(searchArea)) {
+      situacionAfip = 'Exento';
+    } else {
+      situacionAfip = '';  // Dejar vacío para que el usuario lo complete
+    }
+  }
+  
+  console.log('Situación AFIP parseada:', situacionAfip);
 
   // Buscar dirección
   const direccionMatch = html.match(/<td[^>]*>Direcci[oó]n[^<]*<\/td>\s*<td[^>]*>([^<]+)<\/td>/i);
@@ -262,7 +304,7 @@ function parseCuitOnlineHTML(html: string, cuit: string): any {
     apellido: tipoPersona === 'fisica' ? apellido : '',
     razonSocial: tipoPersona === 'juridica' ? nombreCompleto : '',
     tipoPersona,
-    situacionAfip: ivaMatch,
+    situacionAfip,
     domicilioFiscal: {
       calle: direccionMatch ? direccionMatch[1].trim() : '',
       numero: '',
@@ -327,11 +369,35 @@ async function consultarTangoFactura(cuit: string): Promise<any> {
 }
 
 function mapearCondicionIVA(condicion: string): string {
-  const upper = (condicion || '').toUpperCase();
-  if (upper.includes('RESPONSABLE INSCRIPTO') || upper.includes('RI')) return 'Responsable Inscripto';
-  if (upper.includes('MONOTRIBUTO') || upper.includes('MT')) return 'Monotributista';
-  if (upper.includes('EXENTO') || upper.includes('EX')) return 'Exento';
-  return 'Consumidor Final';
+  const upper = (condicion || '').toUpperCase().trim();
+  console.log('Mapeando condición IVA:', upper);
+  
+  // Mapeo más preciso
+  if (upper.includes('RESPONSABLE INSCRIPTO') || upper === 'RI' || upper === '1') {
+    return 'Responsable Inscripto';
+  }
+  if (upper.includes('MONOTRIBUTO') || upper.includes('MONOTRIBUTISTA') || upper === 'MT' || upper === '6') {
+    return 'Monotributista';
+  }
+  if (upper.includes('EXENTO') || upper === 'EX' || upper === '4') {
+    return 'Exento';
+  }
+  if (upper.includes('NO RESPONSABLE') || upper === 'NR' || upper === '3') {
+    return 'No Responsable';
+  }
+  if (upper.includes('CONSUMIDOR FINAL') || upper === 'CF' || upper === '5') {
+    return 'Consumidor Final';
+  }
+  
+  // Si no coincide pero tiene valor, devolverlo formateado
+  if (upper) {
+    // Capitalizar primera letra de cada palabra
+    return condicion.trim().split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  }
+  
+  return '';  // Dejar vacío para que el usuario complete
 }
 
 // ==========================================
