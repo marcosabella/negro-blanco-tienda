@@ -236,44 +236,62 @@ function parseCuitOnlineHTML(html: string, cuit: string): any {
   
   // Buscar condición IVA - Formato: "IVA:&nbsp;Iva Exento" o "IVA: Responsable Inscripto"
   let situacionAfip = '';
-  
+
   // Buscar el campo IVA específico en el HTML de cuitonline
-  // Formato típico: •&nbsp;IVA:&nbsp;Iva Exento <br> o similar
-  // El regex debe capturar todo hasta el próximo <br> o <
-  const ivaMatch = html.match(/IVA:[\s\u00A0]*(?:&nbsp;)*\s*([^<\n\r]+)/i);
-  
+  // Intentar múltiples patrones de regex para mayor robustez
+  let ivaMatch = html.match(/IVA:[\s\u00A0]*(?:&nbsp;)*\s*([^<\n\r&]+)/i);
+
+  // Si no encontró, intentar con patrón más flexible (puede incluir &)
+  if (!ivaMatch) {
+    ivaMatch = html.match(/IVA[:\s]*([^<\n\r]+?)\s*(?:<|$)/i);
+  }
+
+  // Intentar buscar en tablas HTML (td con "IVA")
+  if (!ivaMatch) {
+    const tableMatch = html.match(/<td[^>]*>IVA[^<]*<\/td>\s*<td[^>]*>([^<]+)<\/td>/i);
+    if (tableMatch) {
+      ivaMatch = ['', tableMatch[1]];
+    }
+  }
+
   console.log('=== DEBUG PARSING IVA ===');
   console.log('ivaMatch encontrado:', ivaMatch ? ivaMatch[0] : 'NO ENCONTRADO');
   console.log('ivaMatch[1]:', ivaMatch ? ivaMatch[1] : 'N/A');
-  
-  if (ivaMatch) {
+
+  if (ivaMatch && ivaMatch[1]) {
     // Limpiar el valor capturado
-    const condicionRaw = ivaMatch[1].trim().replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
-    const condicion = condicionRaw.toUpperCase();
+    const condicionRaw = ivaMatch[1].trim()
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&#?\w+;/g, '')
+      .replace(/\s+/g, ' ')
+      .replace(/<[^>]*>/g, '');
+
+    const condicion = condicionRaw.toUpperCase().trim();
     console.log('Condición IVA limpia:', condicionRaw);
     console.log('Condición IVA upper:', condicion);
-    
-    if (condicion.includes('EXENTO')) {
+
+    // Verificar primero por palabras específicas exactas
+    if (condicion.includes('EXENTO') || condicion === 'EX') {
       situacionAfip = 'Exento';
     } else if (condicion.includes('RESPONSABLE INSCRIPTO') || condicion === 'RI') {
       situacionAfip = 'Responsable Inscripto';
-    } else if (condicion.includes('MONOTRIBUTO') || condicion.includes('MONOTRIBUTISTA')) {
+    } else if (condicion.includes('MONOTRIBUTO') || condicion.includes('MONOTRIBUTISTA') || condicion === 'MT') {
       situacionAfip = 'Monotributista';
-    } else if (condicion.includes('NO RESPONSABLE')) {
+    } else if (condicion.includes('NO RESPONSABLE') || condicion === 'NR') {
       situacionAfip = 'No Responsable';
-    } else if (condicion.includes('CONSUMIDOR FINAL')) {
+    } else if (condicion.includes('CONSUMIDOR FINAL') || condicion === 'CF') {
       situacionAfip = 'Consumidor Final';
-    } else if (condicion.includes('NO CATEGORIZADO') || condicion.includes('S/D')) {
+    } else if (condicion.includes('NO CATEGORIZADO') || condicion.includes('S/D') || condicion === '') {
       situacionAfip = '';
     } else {
       // Si tiene un valor pero no coincide, usar ese valor formateado
       situacionAfip = condicionRaw;
     }
   } else {
-    console.log('No se encontró campo IVA explícito en el HTML');
-    // NO asignar Monotributista por defecto
+    console.log('No se encontró campo IVA en el HTML');
   }
-  
+
   console.log('Situación AFIP final parseada:', situacionAfip);
 
   // Buscar dirección
