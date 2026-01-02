@@ -232,16 +232,24 @@ function parseCuitOnlineHTML(html: string, cuit: string): any {
   let situacionAfip = '';
   
   // Buscar el campo IVA específico en el HTML de cuitonline
-  // Formato típico: <span class="bullet">•</span>&nbsp;IVA:&nbsp;Iva Exento
-  const ivaMatch = html.match(/IVA:\s*(?:&nbsp;)?([^<\n]+)/i);
+  // Formato típico: •&nbsp;IVA:&nbsp;Iva Exento <br> o similar
+  // El regex debe capturar todo hasta el próximo <br> o <
+  const ivaMatch = html.match(/IVA:[\s\u00A0]*(?:&nbsp;)*\s*([^<\n\r]+)/i);
+  
+  console.log('=== DEBUG PARSING IVA ===');
+  console.log('ivaMatch encontrado:', ivaMatch ? ivaMatch[0] : 'NO ENCONTRADO');
+  console.log('ivaMatch[1]:', ivaMatch ? ivaMatch[1] : 'N/A');
   
   if (ivaMatch) {
-    const condicion = ivaMatch[1].trim().replace(/&nbsp;/g, ' ').toUpperCase();
-    console.log('Condición IVA encontrada en cuitonline:', condicion);
+    // Limpiar el valor capturado
+    const condicionRaw = ivaMatch[1].trim().replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
+    const condicion = condicionRaw.toUpperCase();
+    console.log('Condición IVA limpia:', condicionRaw);
+    console.log('Condición IVA upper:', condicion);
     
-    if (condicion.includes('EXENTO') || condicion.includes('IVA EXENTO')) {
+    if (condicion.includes('EXENTO')) {
       situacionAfip = 'Exento';
-    } else if (condicion.includes('RESPONSABLE INSCRIPTO') || condicion.includes('RI')) {
+    } else if (condicion.includes('RESPONSABLE INSCRIPTO') || condicion === 'RI') {
       situacionAfip = 'Responsable Inscripto';
     } else if (condicion.includes('MONOTRIBUTO') || condicion.includes('MONOTRIBUTISTA')) {
       situacionAfip = 'Monotributista';
@@ -249,21 +257,18 @@ function parseCuitOnlineHTML(html: string, cuit: string): any {
       situacionAfip = 'No Responsable';
     } else if (condicion.includes('CONSUMIDOR FINAL')) {
       situacionAfip = 'Consumidor Final';
-    } else if (condicion.includes('NO CATEGORIZADO')) {
+    } else if (condicion.includes('NO CATEGORIZADO') || condicion.includes('S/D')) {
       situacionAfip = '';
     } else {
-      // Si tiene un valor pero no coincide, usar ese valor
-      situacionAfip = ivaMatch[1].trim();
+      // Si tiene un valor pero no coincide, usar ese valor formateado
+      situacionAfip = condicionRaw;
     }
   } else {
-    console.log('No se encontró campo IVA explícito, buscando en texto...');
-    // Fallback: buscar Monotributo en el HTML (solo si aparece como impuesto activo)
-    if (html.includes('Monotributo') && !html.includes('IVA:')) {
-      situacionAfip = 'Monotributista';
-    }
+    console.log('No se encontró campo IVA explícito en el HTML');
+    // NO asignar Monotributista por defecto
   }
   
-  console.log('Situación AFIP parseada de cuitonline:', situacionAfip);
+  console.log('Situación AFIP final parseada:', situacionAfip);
 
   // Buscar dirección
   const direccionMatch = html.match(/<td[^>]*>Direcci[oó]n[^<]*<\/td>\s*<td[^>]*>([^<]+)<\/td>/i);
