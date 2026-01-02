@@ -228,53 +228,42 @@ function parseCuitOnlineHTML(html: string, cuit: string): any {
   
   const nombreCompleto = nombreMatch ? nombreMatch[1].trim() : '';
   
-  // Buscar condición IVA - Mejorado para capturar el valor real
+  // Buscar condición IVA - Formato: "IVA:&nbsp;Iva Exento" o "IVA: Responsable Inscripto"
   let situacionAfip = '';
   
-  // Buscar en tabla de datos fiscales con el campo específico
-  const condicionIvaMatch = html.match(/Condici[oó]n\s+(?:frente\s+al\s+)?IVA[^<]*<\/td>\s*<td[^>]*>([^<]+)<\/td>/i)
-    || html.match(/Condici[oó]n\s+IVA[^:]*:\s*([^<\n]+)/i)
-    || html.match(/<span[^>]*class="[^"]*iva[^"]*"[^>]*>([^<]+)<\/span>/i)
-    || html.match(/IVA[^:]*:\s*<[^>]+>([^<]+)</i);
+  // Buscar el campo IVA específico en el HTML de cuitonline
+  // Formato típico: <span class="bullet">•</span>&nbsp;IVA:&nbsp;Iva Exento
+  const ivaMatch = html.match(/IVA:\s*(?:&nbsp;)?([^<\n]+)/i);
   
-  if (condicionIvaMatch) {
-    const condicion = condicionIvaMatch[1].trim().toUpperCase();
-    console.log('Condición IVA encontrada en HTML:', condicion);
+  if (ivaMatch) {
+    const condicion = ivaMatch[1].trim().replace(/&nbsp;/g, ' ').toUpperCase();
+    console.log('Condición IVA encontrada en cuitonline:', condicion);
     
-    if (condicion.includes('RESPONSABLE INSCRIPTO') || condicion === 'RI') {
-      situacionAfip = 'Responsable Inscripto';
-    } else if (condicion.includes('MONOTRIBUTO') || condicion.includes('MONOTRIBUTISTA') || condicion === 'MT') {
-      situacionAfip = 'Monotributista';
-    } else if (condicion.includes('EXENTO') || condicion === 'EX') {
+    if (condicion.includes('EXENTO') || condicion.includes('IVA EXENTO')) {
       situacionAfip = 'Exento';
+    } else if (condicion.includes('RESPONSABLE INSCRIPTO') || condicion.includes('RI')) {
+      situacionAfip = 'Responsable Inscripto';
+    } else if (condicion.includes('MONOTRIBUTO') || condicion.includes('MONOTRIBUTISTA')) {
+      situacionAfip = 'Monotributista';
     } else if (condicion.includes('NO RESPONSABLE')) {
       situacionAfip = 'No Responsable';
-    } else if (condicion.includes('CONSUMIDOR FINAL') || condicion === 'CF') {
+    } else if (condicion.includes('CONSUMIDOR FINAL')) {
       situacionAfip = 'Consumidor Final';
+    } else if (condicion.includes('NO CATEGORIZADO')) {
+      situacionAfip = '';
     } else {
-      // Usar el valor tal cual si no coincide con ninguno conocido
-      situacionAfip = condicionIvaMatch[1].trim();
+      // Si tiene un valor pero no coincide, usar ese valor
+      situacionAfip = ivaMatch[1].trim();
     }
   } else {
-    // Fallback: buscar en cualquier parte del HTML pero solo si está en contexto fiscal
-    const htmlLower = html.toLowerCase();
-    
-    // Verificar si hay una sección de datos fiscales y buscar allí
-    const datosFiscalesSection = html.match(/datos?\s*fiscales?.*?(?=<\/table|<\/div>|$)/is);
-    const searchArea = datosFiscalesSection ? datosFiscalesSection[0] : html;
-    
-    if (/responsable\s+inscripto/i.test(searchArea)) {
-      situacionAfip = 'Responsable Inscripto';
-    } else if (/monotribut/i.test(searchArea)) {
+    console.log('No se encontró campo IVA explícito, buscando en texto...');
+    // Fallback: buscar Monotributo en el HTML (solo si aparece como impuesto activo)
+    if (html.includes('Monotributo') && !html.includes('IVA:')) {
       situacionAfip = 'Monotributista';
-    } else if (/exento/i.test(searchArea)) {
-      situacionAfip = 'Exento';
-    } else {
-      situacionAfip = '';  // Dejar vacío para que el usuario lo complete
     }
   }
   
-  console.log('Situación AFIP parseada:', situacionAfip);
+  console.log('Situación AFIP parseada de cuitonline:', situacionAfip);
 
   // Buscar dirección
   const direccionMatch = html.match(/<td[^>]*>Direcci[oó]n[^<]*<\/td>\s*<td[^>]*>([^<]+)<\/td>/i);
