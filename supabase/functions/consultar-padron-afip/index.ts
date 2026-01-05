@@ -88,9 +88,10 @@ function firmarTRA(tra: string, certPem: string, keyPem: string): string {
     console.log('CMS generado, longitud:', cms.length);
     
     return cms;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error al firmar TRA:', error);
-    throw new Error(`Error al firmar TRA: ${error.message}`);
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+    throw new Error(`Error al firmar TRA: ${errorMessage}`);
   }
 }
 
@@ -192,8 +193,9 @@ async function consultarAPIsPublicas(cuit: string): Promise<any> {
         console.log(`${api.name} retornó datos válidos`);
         return resultado;
       }
-    } catch (error) {
-      console.log(`${api.name} falló:`, error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      console.log(`${api.name} falló:`, errorMessage);
     }
   }
 
@@ -234,62 +236,41 @@ function parseCuitOnlineHTML(html: string, cuit: string): any {
   
   const nombreCompleto = nombreMatch ? nombreMatch[1].trim() : '';
   
-  // Buscar condición IVA - Formato: "IVA:&nbsp;Iva Exento" o "IVA: Responsable Inscripto"
+  // Buscar condición IVA directamente en el HTML
+  // Enfoque: buscar las palabras clave directamente en todo el HTML
   let situacionAfip = '';
+  const htmlUpper = html.toUpperCase();
 
-  // Buscar el campo IVA específico en el HTML de cuitonline
-  // Intentar múltiples patrones de regex para mayor robustez
-  let ivaMatch = html.match(/IVA:[\s\u00A0]*(?:&nbsp;)*\s*([^<\n\r&]+)/i);
+  console.log('=== DEBUG PARSING IVA - NUEVO ENFOQUE ===');
 
-  // Si no encontró, intentar con patrón más flexible (puede incluir &)
-  if (!ivaMatch) {
-    ivaMatch = html.match(/IVA[:\s]*([^<\n\r]+?)\s*(?:<|$)/i);
-  }
-
-  // Intentar buscar en tablas HTML (td con "IVA")
-  if (!ivaMatch) {
-    const tableMatch = html.match(/<td[^>]*>IVA[^<]*<\/td>\s*<td[^>]*>([^<]+)<\/td>/i);
-    if (tableMatch) {
-      ivaMatch = ['', tableMatch[1]];
-    }
-  }
-
-  console.log('=== DEBUG PARSING IVA ===');
-  console.log('ivaMatch encontrado:', ivaMatch ? ivaMatch[0] : 'NO ENCONTRADO');
-  console.log('ivaMatch[1]:', ivaMatch ? ivaMatch[1] : 'N/A');
-
-  if (ivaMatch && ivaMatch[1]) {
-    // Limpiar el valor capturado
-    const condicionRaw = ivaMatch[1].trim()
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&#?\w+;/g, '')
-      .replace(/\s+/g, ' ')
-      .replace(/<[^>]*>/g, '');
-
-    const condicion = condicionRaw.toUpperCase().trim();
-    console.log('Condición IVA limpia:', condicionRaw);
-    console.log('Condición IVA upper:', condicion);
-
-    // Verificar primero por palabras específicas exactas
-    if (condicion.includes('EXENTO') || condicion === 'EX') {
-      situacionAfip = 'Exento';
-    } else if (condicion.includes('RESPONSABLE INSCRIPTO') || condicion === 'RI') {
-      situacionAfip = 'Responsable Inscripto';
-    } else if (condicion.includes('MONOTRIBUTO') || condicion.includes('MONOTRIBUTISTA') || condicion === 'MT') {
-      situacionAfip = 'Monotributista';
-    } else if (condicion.includes('NO RESPONSABLE') || condicion === 'NR') {
-      situacionAfip = 'No Responsable';
-    } else if (condicion.includes('CONSUMIDOR FINAL') || condicion === 'CF') {
-      situacionAfip = 'Consumidor Final';
-    } else if (condicion.includes('NO CATEGORIZADO') || condicion.includes('S/D') || condicion === '') {
-      situacionAfip = '';
-    } else {
-      // Si tiene un valor pero no coincide, usar ese valor formateado
-      situacionAfip = condicionRaw;
-    }
+  // Buscar directamente las condiciones IVA en el HTML
+  // Orden de prioridad: las condiciones más específicas primero
+  if (htmlUpper.includes('IVA EXENTO') || htmlUpper.includes('IVA:') && htmlUpper.includes('EXENTO')) {
+    situacionAfip = 'Exento';
+    console.log('Encontrado: Exento');
+  } else if (htmlUpper.includes('RESPONSABLE INSCRIPTO') || htmlUpper.includes('RESP. INSCRIPTO') || htmlUpper.includes('RESP.INSCRIPTO')) {
+    situacionAfip = 'Responsable Inscripto';
+    console.log('Encontrado: Responsable Inscripto');
+  } else if (htmlUpper.includes('MONOTRIBUTISTA') || htmlUpper.includes('MONOTRIBUTO')) {
+    situacionAfip = 'Monotributista';
+    console.log('Encontrado: Monotributista');
+  } else if (htmlUpper.includes('NO RESPONSABLE')) {
+    situacionAfip = 'No Responsable';
+    console.log('Encontrado: No Responsable');
+  } else if (htmlUpper.includes('CONSUMIDOR FINAL')) {
+    situacionAfip = 'Consumidor Final';
+    console.log('Encontrado: Consumidor Final');
   } else {
-    console.log('No se encontró campo IVA en el HTML');
+    console.log('No se encontró condición IVA específica en el HTML');
+    // Intentar extraer el valor del campo IVA si existe
+    const ivaFieldMatch = html.match(/IVA[:\s]*(?:&nbsp;)*\s*([A-Za-z\s]+?)(?:\s*<|&nbsp;|\s{2,})/i);
+    if (ivaFieldMatch && ivaFieldMatch[1]) {
+      const valorIva = ivaFieldMatch[1].trim();
+      console.log('Valor IVA extraído del campo:', valorIva);
+      if (valorIva.length > 2 && valorIva.length < 50) {
+        situacionAfip = valorIva;
+      }
+    }
   }
 
   console.log('Situación AFIP final parseada:', situacionAfip);
@@ -656,9 +637,10 @@ Deno.serve(async (req) => {
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
-      } catch (error) {
-        console.log('Webservice oficial falló:', error.message);
-        errorOficial = error.message;
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+        console.log('Webservice oficial falló:', errorMessage);
+        errorOficial = errorMessage;
         // Continuar con fallback
       }
     } else {
