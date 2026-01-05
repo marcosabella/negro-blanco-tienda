@@ -1,3 +1,4 @@
+// VERSION: 2026-01-05-v3 - Fix IVA parsing for cuitonline
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0';
 import forge from 'https://esm.sh/node-forge@1.3.1';
 
