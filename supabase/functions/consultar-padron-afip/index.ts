@@ -236,41 +236,42 @@ function parseCuitOnlineHTML(html: string, cuit: string): any {
   
   const nombreCompleto = nombreMatch ? nombreMatch[1].trim() : '';
   
-  // Buscar condición IVA directamente en el HTML
-  // Enfoque: buscar las palabras clave directamente en todo el HTML
+  // Buscar condición IVA - extraer el valor específico del campo IVA
+  // Formato en cuitonline: "IVA:&nbsp;Iva Exento" o "IVA:&nbsp;Responsable Inscripto"
   let situacionAfip = '';
-  const htmlUpper = html.toUpperCase();
 
-  console.log('=== DEBUG PARSING IVA - NUEVO ENFOQUE ===');
+  console.log('=== DEBUG PARSING IVA - EXTRACCIÓN DIRECTA ===');
 
-  // Buscar directamente las condiciones IVA en el HTML
-  // Orden de prioridad: las condiciones más específicas primero
-  if (htmlUpper.includes('IVA EXENTO') || htmlUpper.includes('IVA:') && htmlUpper.includes('EXENTO')) {
-    situacionAfip = 'Exento';
-    console.log('Encontrado: Exento');
-  } else if (htmlUpper.includes('RESPONSABLE INSCRIPTO') || htmlUpper.includes('RESP. INSCRIPTO') || htmlUpper.includes('RESP.INSCRIPTO')) {
-    situacionAfip = 'Responsable Inscripto';
-    console.log('Encontrado: Responsable Inscripto');
-  } else if (htmlUpper.includes('MONOTRIBUTISTA') || htmlUpper.includes('MONOTRIBUTO')) {
-    situacionAfip = 'Monotributista';
-    console.log('Encontrado: Monotributista');
-  } else if (htmlUpper.includes('NO RESPONSABLE')) {
-    situacionAfip = 'No Responsable';
-    console.log('Encontrado: No Responsable');
-  } else if (htmlUpper.includes('CONSUMIDOR FINAL')) {
-    situacionAfip = 'Consumidor Final';
-    console.log('Encontrado: Consumidor Final');
-  } else {
-    console.log('No se encontró condición IVA específica en el HTML');
-    // Intentar extraer el valor del campo IVA si existe
-    const ivaFieldMatch = html.match(/IVA[:\s]*(?:&nbsp;)*\s*([A-Za-z\s]+?)(?:\s*<|&nbsp;|\s{2,})/i);
-    if (ivaFieldMatch && ivaFieldMatch[1]) {
-      const valorIva = ivaFieldMatch[1].trim();
-      console.log('Valor IVA extraído del campo:', valorIva);
-      if (valorIva.length > 2 && valorIva.length < 50) {
-        situacionAfip = valorIva;
-      }
+  // Buscar específicamente el campo IVA con su valor
+  // Patrón: IVA: seguido del valor hasta el próximo <br> o <span>
+  const ivaFieldMatch = html.match(/IVA:(?:&nbsp;|\s)*([^<\n\r]+?)(?:\s*<br|<\/span|<span)/i);
+  
+  if (ivaFieldMatch && ivaFieldMatch[1]) {
+    const valorIvaRaw = ivaFieldMatch[1].trim().replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
+    const valorIvaUpper = valorIvaRaw.toUpperCase();
+    
+    console.log('Valor IVA extraído:', valorIvaRaw);
+    console.log('Valor IVA upper:', valorIvaUpper);
+    
+    // Mapear el valor extraído a las categorías del sistema
+    if (valorIvaUpper.includes('EXENTO') || valorIvaUpper === 'IVA EXENTO') {
+      situacionAfip = 'Exento';
+    } else if (valorIvaUpper.includes('RESPONSABLE INSCRIPTO') || valorIvaUpper === 'RI') {
+      situacionAfip = 'Responsable Inscripto';
+    } else if (valorIvaUpper.includes('MONOTRIBUTO') || valorIvaUpper.includes('MONOTRIBUTISTA')) {
+      situacionAfip = 'Monotributista';
+    } else if (valorIvaUpper.includes('NO RESPONSABLE') || valorIvaUpper.includes('NO ALCANZADO')) {
+      situacionAfip = 'No Responsable';
+    } else if (valorIvaUpper.includes('CONSUMIDOR FINAL') || valorIvaUpper === 'CF') {
+      situacionAfip = 'Consumidor Final';
+    } else if (valorIvaUpper.includes('SUJETO EXENTO') || valorIvaUpper.includes('EXENTO')) {
+      situacionAfip = 'Exento';
+    } else if (valorIvaRaw.length > 2 && valorIvaRaw.length < 50) {
+      // Usar el valor tal cual si no coincide con ninguna categoría conocida
+      situacionAfip = valorIvaRaw;
     }
+  } else {
+    console.log('No se encontró campo IVA en el HTML');
   }
 
   console.log('Situación AFIP final parseada:', situacionAfip);
