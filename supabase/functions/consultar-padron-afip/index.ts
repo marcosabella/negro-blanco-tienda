@@ -1,4 +1,4 @@
-// VERSION: 2026-01-05-v3 - Fix IVA parsing for cuitonline
+// VERSION: 2026-01-05-v4 - FORCE REDEPLOY - Complete IVA parsing rewrite
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0';
 import forge from 'https://esm.sh/node-forge@1.3.1';
 
@@ -203,9 +203,9 @@ async function consultarAPIsPublicas(cuit: string): Promise<any> {
   return null;
 }
 
-// Consultar cuitonline.com - Versión actualizada 2026-01-02
+// Consultar cuitonline.com - VERSION 4 - 2026-01-05
 async function consultarCuitOnline(cuit: string): Promise<any> {
-  console.log('=== Consultando cuitonline.com ===');
+  console.log('=== [V4] Consultando cuitonline.com ===');
   const response = await fetch(`https://www.cuitonline.com/search.php?q=${cuit}`, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -220,14 +220,23 @@ async function consultarCuitOnline(cuit: string): Promise<any> {
   const html = await response.text();
   
   // Log para debug - buscar el patrón IVA en el HTML
-  const ivaSection = html.match(/IVA[^<]{0,100}/gi);
-  console.log('Secciones IVA encontradas en HTML:', ivaSection);
+  console.log('=== [V4] HTML recibido, longitud:', html.length);
   
-  return parseCuitOnlineHTML(html, cuit);
+  // Buscar directamente "IVA Exento" o "Iva Exento" en el HTML
+  const contieneIvaExento = html.toLowerCase().includes('iva exento');
+  const contieneRespInscripto = html.toLowerCase().includes('responsable inscripto');
+  const contieneMonotributo = html.toLowerCase().includes('monotribut');
+  
+  console.log('=== [V4] Búsqueda directa en HTML ===');
+  console.log('[V4] Contiene "iva exento":', contieneIvaExento);
+  console.log('[V4] Contiene "responsable inscripto":', contieneRespInscripto);
+  console.log('[V4] Contiene "monotribut":', contieneMonotributo);
+  
+  return parseCuitOnlineHTML(html, cuit, { contieneIvaExento, contieneRespInscripto, contieneMonotributo });
 }
 
-// Parsear HTML de cuitonline
-function parseCuitOnlineHTML(html: string, cuit: string): any {
+// Parsear HTML de cuitonline - VERSION 4
+function parseCuitOnlineHTML(html: string, cuit: string, flags?: { contieneIvaExento: boolean; contieneRespInscripto: boolean; contieneMonotributo: boolean }): any {
   const tipoPersona = detectarTipoPersona(cuit);
   
   // Buscar nombre/razón social
@@ -237,45 +246,47 @@ function parseCuitOnlineHTML(html: string, cuit: string): any {
   
   const nombreCompleto = nombreMatch ? nombreMatch[1].trim() : '';
   
-  // Buscar condición IVA - extraer el valor específico del campo IVA
-  // Formato en cuitonline: "IVA:&nbsp;Iva Exento" o "IVA:&nbsp;Responsable Inscripto"
+  // NUEVA LÓGICA V4: Determinar situación AFIP basándose en flags de búsqueda directa
   let situacionAfip = '';
-
-  console.log('=== DEBUG PARSING IVA - EXTRACCIÓN DIRECTA ===');
-
-  // Buscar específicamente el campo IVA con su valor
-  // Patrón: IVA: seguido del valor hasta el próximo <br> o <span>
-  const ivaFieldMatch = html.match(/IVA:(?:&nbsp;|\s)*([^<\n\r]+?)(?:\s*<br|<\/span|<span)/i);
   
-  if (ivaFieldMatch && ivaFieldMatch[1]) {
-    const valorIvaRaw = ivaFieldMatch[1].trim().replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
-    const valorIvaUpper = valorIvaRaw.toUpperCase();
-    
-    console.log('Valor IVA extraído:', valorIvaRaw);
-    console.log('Valor IVA upper:', valorIvaUpper);
-    
-    // Mapear el valor extraído a las categorías del sistema
-    if (valorIvaUpper.includes('EXENTO') || valorIvaUpper === 'IVA EXENTO') {
+  console.log('=== [V4] PARSING IVA ===');
+  
+  if (flags) {
+    // Usar los flags de búsqueda directa - PRIORIDAD: Exento > Responsable Inscripto > Monotributista
+    if (flags.contieneIvaExento) {
       situacionAfip = 'Exento';
-    } else if (valorIvaUpper.includes('RESPONSABLE INSCRIPTO') || valorIvaUpper === 'RI') {
+      console.log('[V4] Asignando: Exento (por flag contieneIvaExento)');
+    } else if (flags.contieneRespInscripto) {
       situacionAfip = 'Responsable Inscripto';
-    } else if (valorIvaUpper.includes('MONOTRIBUTO') || valorIvaUpper.includes('MONOTRIBUTISTA')) {
+      console.log('[V4] Asignando: Responsable Inscripto (por flag)');
+    } else if (flags.contieneMonotributo) {
       situacionAfip = 'Monotributista';
-    } else if (valorIvaUpper.includes('NO RESPONSABLE') || valorIvaUpper.includes('NO ALCANZADO')) {
-      situacionAfip = 'No Responsable';
-    } else if (valorIvaUpper.includes('CONSUMIDOR FINAL') || valorIvaUpper === 'CF') {
-      situacionAfip = 'Consumidor Final';
-    } else if (valorIvaUpper.includes('SUJETO EXENTO') || valorIvaUpper.includes('EXENTO')) {
-      situacionAfip = 'Exento';
-    } else if (valorIvaRaw.length > 2 && valorIvaRaw.length < 50) {
-      // Usar el valor tal cual si no coincide con ninguna categoría conocida
-      situacionAfip = valorIvaRaw;
+      console.log('[V4] Asignando: Monotributista (por flag)');
     }
-  } else {
-    console.log('No se encontró campo IVA en el HTML');
+  }
+  
+  // Si no se determinó por flags, intentar extraer del campo IVA específico
+  if (!situacionAfip) {
+    const ivaMatch = html.match(/IVA:(?:&nbsp;|\s)*([^<\n\r]+?)(?:\s*<br|<\/span)/i);
+    if (ivaMatch && ivaMatch[1]) {
+      const valorIva = ivaMatch[1].trim().replace(/&nbsp;/g, ' ').toUpperCase();
+      console.log('[V4] Valor IVA extraído por regex:', valorIva);
+      
+      if (valorIva.includes('EXENTO')) {
+        situacionAfip = 'Exento';
+      } else if (valorIva.includes('RESPONSABLE INSCRIPTO')) {
+        situacionAfip = 'Responsable Inscripto';
+      } else if (valorIva.includes('MONOTRIBUTO') || valorIva.includes('MONOTRIBUTISTA')) {
+        situacionAfip = 'Monotributista';
+      } else if (valorIva.includes('NO RESPONSABLE')) {
+        situacionAfip = 'No Responsable';
+      } else if (valorIva.includes('CONSUMIDOR FINAL')) {
+        situacionAfip = 'Consumidor Final';
+      }
+    }
   }
 
-  console.log('Situación AFIP final parseada:', situacionAfip);
+  console.log('[V4] Situación AFIP final:', situacionAfip);
 
   // Buscar dirección
   const direccionMatch = html.match(/<td[^>]*>Direcci[oó]n[^<]*<\/td>\s*<td[^>]*>([^<]+)<\/td>/i);
