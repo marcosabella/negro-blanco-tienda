@@ -102,9 +102,10 @@ function firmarTRA(tra: string, certPem: string, keyPem: string): string {
     console.log('CMS generado, longitud:', cms.length);
     
     return cms;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error al firmar TRA:', error);
-    throw new Error(`Error al firmar TRA: ${error.message}`);
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+    throw new Error(`Error al firmar TRA: ${errorMessage}`);
   }
 }
 

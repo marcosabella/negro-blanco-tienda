@@ -76,9 +76,10 @@ async function firmarTRA(tra: string, certPem: string, keyPem: string): Promise<
 </soapenv:Envelope>`;
 
     return cms;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error al firmar TRA:', error);
-    throw new Error(`Error al firmar TRA: ${error.message}`);
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+    throw new Error(`Error al firmar TRA: ${errorMessage}`);
   }
 }
 
