@@ -1,4 +1,4 @@
-// VERSION: 2026-01-06-v5 - Fix IVA parsing using specific data section
+// VERSION: 2026-01-06-v6 - Add detailed logging for official WS
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0';
 import forge from 'https://esm.sh/node-forge@1.3.1';
 
@@ -622,15 +622,23 @@ Deno.serve(async (req) => {
 
     // Intentar webservice oficial si hay configuración
     if (afipConfig?.certificado_crt && afipConfig?.certificado_key) {
-      console.log('Intentando webservice oficial AFIP...');
+      console.log('=== INTENTANDO WEBSERVICE OFICIAL AFIP ===');
+      console.log('CUIT Emisor:', afipConfig.cuit_emisor);
+      console.log('Ambiente:', afipConfig.ambiente);
+      console.log('Certificado CRT presente:', !!afipConfig.certificado_crt);
+      console.log('Certificado KEY presente:', !!afipConfig.certificado_key);
+      
       try {
+        console.log('Obteniendo token y sign para ws_sr_padron_a5...');
         const { token, sign } = await obtenerTokenYSign(
           afipConfig.certificado_crt,
           afipConfig.certificado_key,
           'ws_sr_padron_a5',
           afipConfig.ambiente
         );
+        console.log('Token obtenido OK, longitud:', token.length);
 
+        console.log('Consultando padrón oficial para CUIT:', cuitLimpio);
         const datosPersona = await consultarPadron(
           token,
           sign,
@@ -640,6 +648,9 @@ Deno.serve(async (req) => {
         );
 
         console.log('=== DATOS OBTENIDOS DE AFIP OFICIAL ===');
+        console.log('Situación AFIP:', datosPersona.situacionAfip);
+        console.log('Nombre:', datosPersona.nombre);
+        
         return new Response(
           JSON.stringify({
             success: true,
@@ -649,12 +660,16 @@ Deno.serve(async (req) => {
         );
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-        console.log('Webservice oficial falló:', errorMessage);
+        console.error('=== ERROR EN WEBSERVICE OFICIAL ===');
+        console.error('Error:', errorMessage);
         errorOficial = errorMessage;
         // Continuar con fallback
       }
     } else {
-      console.log('Sin configuración AFIP, usando APIs públicas directamente');
+      console.log('=== SIN CONFIGURACIÓN AFIP ===');
+      console.log('certificado_crt presente:', !!afipConfig?.certificado_crt);
+      console.log('certificado_key presente:', !!afipConfig?.certificado_key);
+      console.log('Usando APIs públicas directamente');
     }
 
     // Fallback: APIs públicas
