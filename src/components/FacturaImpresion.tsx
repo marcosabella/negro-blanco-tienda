@@ -541,11 +541,6 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
             {/* Footer - CAE y QR estilo ARCA */}
             <div className="footer-section">
               <div className="footer-left">
-                <div className="arca-logo">ARCA</div>
-                <div style={{ fontSize: '8px' }}>Pág. 1/1</div>
-              </div>
-              
-              <div className="footer-center">
                 <div className="qr-container">
                   {qrDataUrl ? (
                     <img src={qrDataUrl} alt="QR AFIP" />
@@ -558,6 +553,11 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
                 <div className="arca-text">
                   <strong>Comprobante Autorizado</strong>
                 </div>
+                <div className="arca-logo">ARCA</div>
+                <div style={{ fontSize: '8px' }}>Pág. 1/1</div>
+              </div>
+              
+              <div className="footer-center">
               </div>
               
               <div className="footer-right">
