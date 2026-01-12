@@ -79,19 +79,17 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
               font-size: 12px;
               font-weight: bold;
               padding: 5px;
-              border-bottom: 1px solid #000;
-              background: #f5f5f5;
             }
             
             /* Header principal con 3 columnas */
             .header {
               display: flex;
+              border-top: 1px solid #000;
               border-bottom: 1px solid #000;
             }
             .header-left {
               flex: 1;
               padding: 10px;
-              border-right: 1px solid #000;
             }
             .header-center {
               width: 80px;
@@ -99,8 +97,20 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
               flex-direction: column;
               align-items: center;
               justify-content: center;
-              border-right: 1px solid #000;
+              border-left: 2px solid #000;
+              border-right: 2px solid #000;
               background: #fff;
+              position: relative;
+            }
+            .header-center::before {
+              content: '';
+              position: absolute;
+              top: -20px;
+              left: 50%;
+              transform: translateX(-50%);
+              width: 2px;
+              height: 20px;
+              background: #000;
             }
             .header-right {
               flex: 1;
