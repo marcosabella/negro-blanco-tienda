@@ -195,17 +195,30 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
               border-collapse: collapse;
             }
             th {
-              background-color: #e8e8e8;
+              background-color: #d6e8f5;
               padding: 6px 4px;
               text-align: center;
-              border: 1px solid #000;
+              border-top: 1px solid #000;
+              border-bottom: 1px solid #000;
               font-weight: bold;
               font-size: 9px;
             }
+            th:first-child {
+              border-left: 1px solid #000;
+            }
+            th:last-child {
+              border-right: 1px solid #000;
+            }
             td {
               padding: 6px 4px;
-              border: 1px solid #000;
               font-size: 9px;
+              border-bottom: 1px solid #000;
+            }
+            td:first-child {
+              border-left: 1px solid #000;
+            }
+            td:last-child {
+              border-right: 1px solid #000;
             }
             .text-right {
               text-align: right;
