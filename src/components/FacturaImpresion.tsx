@@ -11,6 +11,24 @@ interface FacturaImpresionProps {
   venta: Venta;
 }
 
+// Mapeo de códigos ARCA según tipo de comprobante
+const CODIGOS_COMPROBANTE: Record<string, string> = {
+  'factura_a': '001',
+  'factura_b': '006',
+  'factura_c': '011',
+  'nota_credito_a': '003',
+  'nota_credito_b': '008',
+  'nota_credito_c': '013',
+  'nota_debito_a': '002',
+  'nota_debito_b': '007',
+  'nota_debito_c': '012',
+  'recibo_a': '004',
+  'recibo_b': '009',
+  'recibo_c': '015',
+  'ticket_fiscal': '083',
+  'factura_exportacion': '019',
+};
+
 export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
   const printRef = useRef<HTMLDivElement>(null);
   const { comercio } = useComercio();
@@ -21,13 +39,11 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
     const printContent = printRef.current;
     if (!printContent) return;
 
-    const printWindow = window.open('', '', 'width=800,height=600');
+    const printWindow = window.open('', '', 'width=900,height=700');
     if (!printWindow) return;
 
-    // Clonar el contenido y reemplazar el QR con el data URL si existe
     const clonedContent = printContent.cloneNode(true) as HTMLElement;
     
-    // Si hay QR generado, actualizar la imagen en el clon
     if (qrDataUrl) {
       const qrImg = clonedContent.querySelector('.qr-container img') as HTMLImageElement;
       if (qrImg) {
@@ -47,110 +63,231 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
             }
             body {
               font-family: Arial, sans-serif;
-              font-size: 11px;
-              padding: 20px;
+              font-size: 10px;
+              padding: 15px;
+              line-height: 1.4;
             }
             .factura-container {
               max-width: 800px;
               margin: 0 auto;
-              border: 2px solid #000;
+              border: 1px solid #000;
             }
+            
+            /* Indicador ORIGINAL/DUPLICADO */
+            .copy-indicator {
+              text-align: center;
+              font-size: 12px;
+              font-weight: bold;
+              padding: 5px;
+              border-bottom: 1px solid #000;
+              background: #f5f5f5;
+            }
+            
+            /* Header principal con 3 columnas */
             .header {
               display: flex;
-              border-bottom: 2px solid #000;
+              border-bottom: 1px solid #000;
             }
-            .header-left, .header-right {
+            .header-left {
               flex: 1;
               padding: 10px;
+              border-right: 1px solid #000;
             }
             .header-center {
-              width: 100px;
-              border-left: 2px solid #000;
-              border-right: 2px solid #000;
+              width: 80px;
               display: flex;
               flex-direction: column;
               align-items: center;
               justify-content: center;
+              border-right: 1px solid #000;
+              background: #fff;
+            }
+            .header-right {
+              flex: 1;
               padding: 10px;
             }
-            .tipo-comprobante {
-              font-size: 32px;
+            
+            .comercio-nombre {
+              font-size: 14px;
+              font-weight: bold;
+              margin-bottom: 8px;
+            }
+            .comercio-info {
+              font-size: 9px;
+              line-height: 1.5;
+            }
+            
+            .tipo-letra {
+              font-size: 36px;
               font-weight: bold;
               line-height: 1;
             }
-            .documento-type {
+            .tipo-codigo {
+              font-size: 9px;
+              margin-top: 3px;
+            }
+            
+            .factura-titulo {
+              font-size: 16px;
+              font-weight: bold;
+              margin-bottom: 8px;
+            }
+            .factura-info {
               font-size: 10px;
-              margin-top: 5px;
+              line-height: 1.6;
             }
-            .header-left strong, .header-right strong {
-              font-size: 14px;
+            .factura-info strong {
+              display: inline-block;
+              min-width: 100px;
             }
-            .cliente-section {
-              padding: 10px;
+            
+            /* Sección períodos */
+            .periodo-section {
+              display: flex;
               border-bottom: 1px solid #000;
+              font-size: 9px;
             }
-            .cliente-grid {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 10px;
-              margin-top: 5px;
+            .periodo-item {
+              flex: 1;
+              padding: 5px 10px;
+              border-right: 1px solid #000;
             }
-            .items-section {
+            .periodo-item:last-child {
+              border-right: none;
+            }
+            
+            /* Sección cliente */
+            .cliente-section {
+              border-bottom: 1px solid #000;
               padding: 10px;
+            }
+            .cliente-row {
+              display: flex;
+              gap: 20px;
+              margin-bottom: 5px;
+            }
+            .cliente-row:last-child {
+              margin-bottom: 0;
+            }
+            .cliente-field {
+              font-size: 10px;
+            }
+            .cliente-field strong {
+              margin-right: 5px;
+            }
+            
+            /* Tabla de items */
+            .items-section {
               border-bottom: 1px solid #000;
             }
             table {
               width: 100%;
               border-collapse: collapse;
-              margin-top: 10px;
             }
             th {
-              background-color: #f0f0f0;
-              padding: 5px;
-              text-align: left;
+              background-color: #e8e8e8;
+              padding: 6px 4px;
+              text-align: center;
               border: 1px solid #000;
               font-weight: bold;
+              font-size: 9px;
             }
             td {
-              padding: 5px;
+              padding: 6px 4px;
               border: 1px solid #000;
+              font-size: 9px;
             }
             .text-right {
               text-align: right;
             }
+            .text-center {
+              text-align: center;
+            }
+            
+            /* Totales */
             .totales-section {
-              padding: 10px;
               border-bottom: 1px solid #000;
-            }
-            .totales-grid {
-              display: grid;
-              grid-template-columns: 1fr auto;
-              gap: 10px;
-              max-width: 400px;
-              margin-left: auto;
-            }
-            .pagos-section {
               padding: 10px;
-              border-bottom: 1px solid #000;
             }
+            .totales-row {
+              display: flex;
+              justify-content: flex-end;
+              gap: 20px;
+              margin-bottom: 3px;
+            }
+            .totales-row:last-child {
+              margin-bottom: 0;
+            }
+            .totales-label {
+              font-size: 10px;
+              min-width: 150px;
+              text-align: right;
+            }
+            .totales-value {
+              font-size: 10px;
+              font-weight: bold;
+              min-width: 100px;
+              text-align: right;
+            }
+            .total-final {
+              font-size: 14px;
+              font-weight: bold;
+              border-top: 1px solid #000;
+              padding-top: 5px;
+              margin-top: 5px;
+            }
+            
+            /* Footer ARCA */
             .footer-section {
+              display: flex;
               padding: 10px;
-              font-size: 9px;
+              gap: 15px;
             }
+            .footer-left {
+              flex: 1;
+              display: flex;
+              flex-direction: column;
+              justify-content: flex-end;
+            }
+            .footer-center {
+              flex: 2;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+            }
+            .footer-right {
+              flex: 1;
+              display: flex;
+              flex-direction: column;
+              align-items: flex-end;
+            }
+            
+            .arca-logo {
+              font-size: 10px;
+              font-weight: bold;
+              margin-bottom: 5px;
+            }
+            .arca-text {
+              font-size: 8px;
+              text-align: center;
+              margin-top: 5px;
+            }
+            
             .cae-info {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 10px;
-              margin-top: 10px;
+              font-size: 10px;
+              text-align: right;
             }
+            .cae-info div {
+              margin-bottom: 3px;
+            }
+            
             .qr-container {
-              width: 120px;
-              height: 120px;
-              border: 1px solid #000;
+              width: 100px;
+              height: 100px;
+              border: 1px solid #ccc;
               display: flex;
               align-items: center;
               justify-content: center;
-              margin: 10px auto;
               overflow: hidden;
             }
             .qr-container img {
@@ -158,18 +295,15 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
               height: 100%;
               object-fit: contain;
             }
-            .qr-placeholder {
-              width: 100%;
-              height: 100%;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-size: 10px;
+            
+            .disclaimer {
+              font-size: 7px;
               text-align: center;
+              padding: 5px;
+              border-top: 1px solid #ccc;
+              color: #666;
             }
-            .bold {
-              font-weight: bold;
-            }
+            
             @media print {
               body {
                 padding: 0;
@@ -204,13 +338,39 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
 
   const getTipoComprobanteNombre = () => {
     const tipo = venta.tipo_comprobante;
-    if (tipo.includes('factura')) return 'FACTURA';
+    if (tipo.includes('factura') && !tipo.includes('exportacion')) return 'FACTURA';
     if (tipo.includes('nota_credito')) return 'NOTA DE CRÉDITO';
     if (tipo.includes('nota_debito')) return 'NOTA DE DÉBITO';
     if (tipo.includes('recibo')) return 'RECIBO';
     if (tipo === 'ticket_fiscal') return 'TICKET FISCAL';
     if (tipo === 'factura_exportacion') return 'FACTURA DE EXPORTACIÓN';
     return 'COMPROBANTE';
+  };
+
+  const getCodigoComprobante = () => {
+    return CODIGOS_COMPROBANTE[venta.tipo_comprobante] || '000';
+  };
+
+  const formatNumeroComprobante = () => {
+    // Formato: Punto de Venta: 00001  Comp. Nro: 00000071
+    const parts = venta.numero_comprobante.split('-');
+    if (parts.length === 2) {
+      return {
+        puntoVenta: parts[0].padStart(5, '0'),
+        numero: parts[1].padStart(8, '0')
+      };
+    }
+    return {
+      puntoVenta: afipConfig?.punto_venta?.toString().padStart(5, '0') || '00001',
+      numero: venta.numero_comprobante.padStart(8, '0')
+    };
+  };
+
+  const getTipoPagoLabel = () => {
+    const pago = TIPOS_PAGO.find(t => t.value === venta.tipo_pago);
+    if (venta.tipo_pago === 'transferencia') return 'Transferencia Bancaria';
+    if (venta.tipo_pago === 'tarjeta') return 'Tarjeta de Crédito/Débito';
+    return pago?.label || venta.tipo_pago;
   };
 
   // Generar QR cuando hay CAE
@@ -236,6 +396,8 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
   }, [venta.cae, venta.fecha_venta, venta.tipo_comprobante, venta.numero_comprobante, venta.total, comercio, afipConfig]);
 
   const comercioData = comercio;
+  const numComprobante = formatNumeroComprobante();
+  const fechaVenta = format(new Date(venta.fecha_venta), 'dd/MM/yyyy');
 
   return (
     <>
@@ -247,89 +409,103 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
       <div style={{ display: 'none' }}>
         <div ref={printRef}>
           <div className="factura-container">
-            {/* Header */}
+            {/* Indicador ORIGINAL */}
+            <div className="copy-indicator">ORIGINAL</div>
+            
+            {/* Header principal */}
             <div className="header">
+              {/* Datos del emisor */}
               <div className="header-left">
-                <strong>{comercioData?.nombre_comercio || 'COMERCIO'}</strong>
-                <div>
-                  Domicilio: {comercioData?.calle} {comercioData?.numero}
-                </div>
-                <div>
-                  {comercioData?.codigo_postal} - {comercioData?.localidad} - {comercioData?.provincia}
-                </div>
-                <div>Tel: {comercioData?.telefono || 'N/A'}</div>
-                <div style={{ marginTop: '10px' }}>
-                  <strong>CUIT:</strong> {comercioData?.cuit}
-                </div>
-                <div>
-                  <strong>Ing. Brutos:</strong> {comercioData?.ingresos_brutos || 'N/A'}
-                </div>
-                <div>
-                  <strong>Inicio Actividades:</strong> {comercioData?.fecha_inicio_actividad ? format(new Date(comercioData.fecha_inicio_actividad), 'dd/MM/yyyy') : 'N/A'}
+                <div className="comercio-nombre">{comercioData?.nombre_comercio || 'COMERCIO'}</div>
+                <div className="comercio-info">
+                  <div><strong>Razón Social:</strong> {comercioData?.nombre_comercio}</div>
+                  <div><strong>Domicilio Comercial:</strong> {comercioData?.calle} {comercioData?.numero} - {comercioData?.localidad}, {comercioData?.provincia}</div>
+                  <div><strong>CUIT:</strong> {comercioData?.cuit}</div>
+                  <div><strong>Ingresos Brutos:</strong> {comercioData?.ingresos_brutos || 'N/A'}</div>
+                  <div><strong>Condición frente al IVA:</strong> Responsable Inscripto</div>
+                  <div><strong>Fecha de Inicio de Actividades:</strong> {comercioData?.fecha_inicio_actividad ? format(new Date(comercioData.fecha_inicio_actividad), 'dd/MM/yyyy') : 'N/A'}</div>
                 </div>
               </div>
 
+              {/* Letra y código del comprobante */}
               <div className="header-center">
-                <div className="tipo-comprobante">{getTipoComprobanteLetra()}</div>
-                <div className="documento-type">COD. {venta.tipo_comprobante === 'factura_a' ? '01' : venta.tipo_comprobante === 'factura_b' ? '06' : '11'}</div>
+                <div className="tipo-letra">{getTipoComprobanteLetra()}</div>
+                <div className="tipo-codigo">COD. {getCodigoComprobante()}</div>
               </div>
 
+              {/* Datos de la factura */}
               <div className="header-right">
-                <strong>{getTipoComprobanteNombre()}</strong>
-                <div style={{ marginTop: '10px' }}>
-                  <strong>Nro:</strong> {venta.numero_comprobante}
-                </div>
-                <div>
-                  <strong>Fecha:</strong> {format(new Date(venta.fecha_venta), 'dd/MM/yyyy')}
-                </div>
-                <div style={{ marginTop: '10px' }}>
-                  <strong>ORIGINAL</strong>
+                <div className="factura-titulo">{getTipoComprobanteNombre()}</div>
+                <div className="factura-info">
+                  <div><strong>Punto de Venta:</strong> {numComprobante.puntoVenta}  <strong>Comp. Nro:</strong> {numComprobante.numero}</div>
+                  <div><strong>Fecha de Emisión:</strong> {fechaVenta}</div>
                 </div>
               </div>
             </div>
 
-            {/* Cliente */}
+            {/* Período facturado y vencimiento */}
+            <div className="periodo-section">
+              <div className="periodo-item">
+                <strong>Período Facturado Desde:</strong> {fechaVenta}  <strong>Hasta:</strong> {fechaVenta}
+              </div>
+              <div className="periodo-item">
+                <strong>Fecha de Vto. para el pago:</strong> {fechaVenta}
+              </div>
+            </div>
+
+            {/* Datos del cliente */}
             <div className="cliente-section">
-              <div><strong>DATOS DEL CLIENTE</strong></div>
-              <div className="cliente-grid">
-                <div>
-                  <strong>Razón Social/Nombre:</strong> {venta.cliente_nombre}
+              <div className="cliente-row">
+                <div className="cliente-field">
+                  <strong>CUIT:</strong> {venta.cliente?.apellido || 'N/A'}
                 </div>
-                <div>
-                  <strong>CUIT/DNI:</strong> {venta.cliente?.apellido ? `${venta.cliente.nombre} ${venta.cliente.apellido}` : 'N/A'}
+              </div>
+              <div className="cliente-row">
+                <div className="cliente-field">
+                  <strong>Apellido y Nombre / Razón Social:</strong> {venta.cliente_nombre}
                 </div>
-                <div>
-                  <strong>Condición IVA:</strong> Consumidor Final
+              </div>
+              <div className="cliente-row">
+                <div className="cliente-field">
+                  <strong>Condición frente al IVA:</strong> Consumidor Final
                 </div>
-                <div>
-                  <strong>Condición de Venta:</strong> {TIPOS_PAGO.find(t => t.value === venta.tipo_pago)?.label || venta.tipo_pago}
+              </div>
+              <div className="cliente-row">
+                <div className="cliente-field">
+                  <strong>Domicilio:</strong> {venta.cliente?.nombre || 'N/A'}
+                </div>
+              </div>
+              <div className="cliente-row">
+                <div className="cliente-field">
+                  <strong>Condición de venta:</strong> {getTipoPagoLabel()}
                 </div>
               </div>
             </div>
 
-            {/* Items */}
+            {/* Tabla de items */}
             <div className="items-section">
-              <div><strong>DETALLE DE PRODUCTOS/SERVICIOS</strong></div>
               <table>
                 <thead>
                   <tr>
-                    <th style={{ width: '80px' }}>Código</th>
-                    <th>Descripción</th>
-                    <th style={{ width: '80px' }}>Cantidad</th>
-                    <th style={{ width: '100px' }}>P. Unitario</th>
-                    <th style={{ width: '80px' }}>% IVA</th>
-                    <th style={{ width: '100px' }}>Subtotal</th>
+                    <th style={{ width: '30%' }}>Código Producto / Servicio</th>
+                    <th style={{ width: '10%' }}>Cantidad</th>
+                    <th style={{ width: '12%' }}>U. Medida</th>
+                    <th style={{ width: '15%' }}>Precio Unit.</th>
+                    <th style={{ width: '8%' }}>% Bonif</th>
+                    <th style={{ width: '10%' }}>Imp. Bonif.</th>
+                    <th style={{ width: '15%' }}>Subtotal</th>
                   </tr>
                 </thead>
                 <tbody>
                   {venta.venta_items?.map((item, index) => (
                     <tr key={index}>
-                      <td>{item.producto?.cod_producto}</td>
-                      <td>{item.producto?.descripcion}</td>
-                      <td className="text-right">{item.cantidad}</td>
-                      <td className="text-right">${item.precio_unitario.toFixed(2)}</td>
-                      <td className="text-right">{item.porcentaje_iva}%</td>
-                      <td className="text-right">${item.total.toFixed(2)}</td>
+                      <td>{item.producto?.descripcion || item.producto?.cod_producto}</td>
+                      <td className="text-right">{item.cantidad.toFixed(2).replace('.', ',')}</td>
+                      <td className="text-center">unidades</td>
+                      <td className="text-right">{item.precio_unitario.toFixed(2).replace('.', ',')}</td>
+                      <td className="text-right">0,00</td>
+                      <td className="text-right"></td>
+                      <td className="text-right">{item.subtotal.toFixed(2).replace('.', ',')}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -338,83 +514,62 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
 
             {/* Totales */}
             <div className="totales-section">
-              <div className="totales-grid">
-                <div>Subtotal:</div>
-                <div className="text-right bold">${venta.subtotal.toFixed(2)}</div>
-                <div>IVA:</div>
-                <div className="text-right bold">${venta.total_iva.toFixed(2)}</div>
-                <div>TOTAL:</div>
-                <div className="text-right bold" style={{ fontSize: '14px' }}>${venta.total.toFixed(2)}</div>
+              <div className="totales-row">
+                <div className="totales-label">Subtotal:</div>
+                <div className="totales-value">$ {venta.subtotal.toFixed(2).replace('.', ',')}</div>
+              </div>
+              <div className="totales-row">
+                <div className="totales-label">Importe Otros Tributos:</div>
+                <div className="totales-value">$ 0,00</div>
+              </div>
+              <div className="totales-row total-final">
+                <div className="totales-label">Importe Total:</div>
+                <div className="totales-value">$ {venta.total.toFixed(2).replace('.', ',')}</div>
               </div>
             </div>
 
-            {/* Métodos de Pago */}
-            {venta.pagos_venta && venta.pagos_venta.length > 0 && (
-              <div className="pagos-section">
-                <div><strong>MÉTODOS DE PAGO</strong></div>
-                <table style={{ marginTop: '10px' }}>
-                  <thead>
-                    <tr>
-                      <th>Método</th>
-                      <th>Detalle</th>
-                      <th style={{ width: '120px' }}>Monto</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {venta.pagos_venta.map((pago, index) => (
-                      <tr key={index}>
-                        <td>{TIPOS_PAGO.find(t => t.value === pago.tipo_pago)?.label}</td>
-                        <td>
-                          {pago.tipo_pago === 'tarjeta' && pago.tarjeta && (
-                            <span>{pago.tarjeta.nombre} - {pago.cuotas} cuota(s)</span>
-                          )}
-                          {pago.tipo_pago === 'transferencia' && pago.banco && (
-                            <span>{pago.banco.nombre_banco}</span>
-                          )}
-                          {pago.tipo_pago === 'cheque' && pago.cheque && (
-                            <span>N° {pago.cheque.numero_cheque}</span>
-                          )}
-                          {(pago.tipo_pago === 'contado' || pago.tipo_pago === 'cta_cte') && '-'}
-                        </td>
-                        <td className="text-right">${pago.monto.toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* Footer - CAE y QR */}
+            {/* Footer - CAE y QR estilo ARCA */}
             <div className="footer-section">
-              <div className="cae-info">
-                <div>
+              <div className="footer-left">
+                <div className="arca-logo">ARCA</div>
+                <div style={{ fontSize: '8px' }}>Pág. 1/1</div>
+              </div>
+              
+              <div className="footer-center">
+                <div className="qr-container">
+                  {qrDataUrl ? (
+                    <img src={qrDataUrl} alt="QR AFIP" />
+                  ) : (
+                    <div style={{ fontSize: '8px', textAlign: 'center', padding: '10px' }}>
+                      {venta.cae ? 'QR AFIP' : 'Sin CAE'}
+                    </div>
+                  )}
+                </div>
+                <div className="arca-text">
+                  <strong>Comprobante Autorizado</strong>
+                </div>
+              </div>
+              
+              <div className="footer-right">
+                <div className="cae-info">
                   {venta.cae ? (
                     <>
                       <div><strong>CAE N°:</strong> {venta.cae}</div>
-                      <div><strong>Fecha Vto. CAE:</strong> {venta.cae_vencimiento ? format(new Date(venta.cae_vencimiento), 'dd/MM/yyyy') : 'N/A'}</div>
+                      <div><strong>Vto. de CAE:</strong> {venta.cae_vencimiento ? format(new Date(venta.cae_vencimiento), 'dd/MM/yyyy') : 'N/A'}</div>
                     </>
                   ) : (
                     <>
-                      <div><strong>CAE N°:</strong> (Pendiente - Usar botón "Obtener CAE")</div>
-                      <div><strong>Fecha Vto. CAE:</strong> (Pendiente)</div>
+                      <div><strong>CAE N°:</strong> Pendiente</div>
+                      <div><strong>Vto. de CAE:</strong> Pendiente</div>
                     </>
                   )}
                 </div>
-                <div>
-                  <div className="qr-container">
-                    {qrDataUrl ? (
-                      <img src={qrDataUrl} alt="QR AFIP" />
-                    ) : (
-                      <div className="qr-placeholder">
-                        {venta.cae ? 'Código QR AFIP' : 'Sin CAE - Use botón "Obtener CAE"'}
-                      </div>
-                    )}
-                  </div>
-                </div>
               </div>
-              <div style={{ marginTop: '10px', fontSize: '8px', textAlign: 'center' }}>
-                Comprobante autorizado por ARCA (ex AFIP). Este documento cumple con las disposiciones vigentes.
-              </div>
+            </div>
+
+            {/* Disclaimer ARCA */}
+            <div className="disclaimer">
+              AGENCIA DE RECAUDACIÓN Y CONTROL ADUANERO - Esta Agencia no se responsabiliza por los datos ingresados en el detalle de la operación
             </div>
           </div>
         </div>
