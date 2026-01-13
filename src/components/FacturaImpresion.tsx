@@ -233,7 +233,7 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
             /* Totales */
             .totales-section {
               position: absolute;
-              bottom: 160px;
+              bottom: 200px;
               left: 0;
               right: 0;
               padding: 10px;
