@@ -71,6 +71,9 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
               max-width: 800px;
               margin: 0 auto;
               border: 1px solid #000;
+              min-height: 100vh;
+              position: relative;
+              padding-bottom: 180px;
             }
             
             /* Indicador ORIGINAL/DUPLICADO */
@@ -229,8 +232,12 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
             
             /* Totales */
             .totales-section {
-              border-bottom: 1px solid #000;
+              position: absolute;
+              bottom: 130px;
+              left: 0;
+              right: 0;
               padding: 10px;
+              border-bottom: 1px solid #000;
             }
             .totales-row {
               display: flex;
@@ -265,6 +272,10 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
               display: flex;
               padding: 10px;
               gap: 15px;
+              position: absolute;
+              bottom: 0;
+              left: 0;
+              right: 0;
             }
             .footer-left {
               flex: 1;
