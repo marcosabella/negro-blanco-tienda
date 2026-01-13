@@ -233,11 +233,11 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
             /* Totales */
             .totales-section {
               position: absolute;
-              bottom: 130px;
+              bottom: 160px;
               left: 0;
               right: 0;
               padding: 10px;
-              border-bottom: 1px solid #000;
+              background: #fff;
             }
             .totales-row {
               display: flex;
@@ -273,9 +273,10 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
               padding: 10px;
               gap: 15px;
               position: absolute;
-              bottom: 0;
+              bottom: 25px;
               left: 0;
               right: 0;
+              border-top: 1px solid #000;
             }
             .footer-left {
               flex: 1;
