@@ -202,7 +202,6 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
               padding: 6px 4px;
               text-align: center;
               border-top: 1px solid #000;
-              border-bottom: 1px solid #000;
               font-weight: bold;
               font-size: 9px;
             }
