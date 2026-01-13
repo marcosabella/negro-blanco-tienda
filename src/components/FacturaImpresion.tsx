@@ -333,9 +333,8 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
             
             .disclaimer {
               font-size: 7px;
-              text-align: center;
-              padding: 5px;
-              border-top: 1px solid #ccc;
+              text-align: left;
+              padding: 3px 0;
               color: #666;
             }
             
@@ -579,6 +578,9 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
                   <strong>Comprobante Autorizado</strong>
                 </div>
                 <div className="arca-logo">ARCA</div>
+                <div className="disclaimer">
+                  AGENCIA DE RECAUDACIÓN Y CONTROL ADUANERO - Esta Agencia no se responsabiliza por los datos ingresados en el detalle de la operación
+                </div>
                 <div style={{ fontSize: '8px' }}>Pág. 1/1</div>
               </div>
               
@@ -600,11 +602,6 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
                   )}
                 </div>
               </div>
-            </div>
-
-            {/* Disclaimer ARCA */}
-            <div className="disclaimer">
-              AGENCIA DE RECAUDACIÓN Y CONTROL ADUANERO - Esta Agencia no se responsabiliza por los datos ingresados en el detalle de la operación
             </div>
           </div>
         </div>
