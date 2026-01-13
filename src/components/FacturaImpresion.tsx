@@ -331,11 +331,22 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
               object-fit: contain;
             }
             
-            .disclaimer {
+            .disclaimer-full {
               font-size: 7px;
-              text-align: left;
-              padding: 3px 0;
+              text-align: center;
+              padding: 5px 10px;
               color: #666;
+              border-top: 1px solid #ccc;
+              position: absolute;
+              bottom: 15px;
+              left: 0;
+              right: 0;
+            }
+            .page-number {
+              font-size: 8px;
+              position: absolute;
+              bottom: 3px;
+              left: 10px;
             }
             
             @media print {
@@ -578,10 +589,6 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
                   <strong>Comprobante Autorizado</strong>
                 </div>
                 <div className="arca-logo">ARCA</div>
-                <div className="disclaimer">
-                  AGENCIA DE RECAUDACIÓN Y CONTROL ADUANERO - Esta Agencia no se responsabiliza por los datos ingresados en el detalle de la operación
-                </div>
-                <div style={{ fontSize: '8px' }}>Pág. 1/1</div>
               </div>
               
               <div className="footer-center">
@@ -603,6 +610,12 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
                 </div>
               </div>
             </div>
+            
+            {/* Disclaimer y paginación */}
+            <div className="disclaimer-full">
+              AGENCIA DE RECAUDACIÓN Y CONTROL ADUANERO - Esta Agencia no se responsabiliza por los datos ingresados en el detalle de la operación
+            </div>
+            <div className="page-number">Pág. 1/1</div>
           </div>
         </div>
       </div>
