@@ -215,13 +215,6 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
             td {
               padding: 6px 4px;
               font-size: 9px;
-              border-bottom: 1px solid #000;
-            }
-            td:first-child {
-              border-left: 1px solid #000;
-            }
-            td:last-child {
-              border-right: 1px solid #000;
             }
             .text-right {
               text-align: right;
