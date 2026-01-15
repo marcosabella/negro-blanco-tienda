@@ -191,7 +191,6 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
             
             /* Tabla de items */
             .items-section {
-              border-bottom: 1px solid #000;
             }
             table {
               width: 100%;
