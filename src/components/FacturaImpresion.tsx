@@ -89,6 +89,8 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
               display: flex;
               border-top: 1px solid #000;
               border-bottom: 1px solid #000;
+              border-left: 1px solid #000;
+              border-right: 1px solid #000;
             }
             .header-left {
               flex: 1;
