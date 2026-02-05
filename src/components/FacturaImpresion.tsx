@@ -460,9 +460,6 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
                   <div><strong>Razón Social:</strong> {comercioData?.nombre_comercio}</div>
                   <div><strong>Domicilio Comercial:</strong> {comercioData?.calle} {comercioData?.numero} - {comercioData?.localidad}, {comercioData?.provincia}</div>
                   <div><strong>CUIT:</strong> {comercioData?.cuit}</div>
-                  <div><strong>Ingresos Brutos:</strong> {comercioData?.ingresos_brutos || 'N/A'}</div>
-                  <div><strong>Condición frente al IVA:</strong> Responsable Inscripto</div>
-                  <div><strong>Fecha de Inicio de Actividades:</strong> {comercioData?.fecha_inicio_actividad ? format(new Date(comercioData.fecha_inicio_actividad), 'dd/MM/yyyy') : 'N/A'}</div>
                 </div>
               </div>
 
@@ -478,6 +475,10 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
                 <div className="factura-info">
                   <div><strong>Punto de Venta:</strong> {numComprobante.puntoVenta}  <strong>Comp. Nro:</strong> {numComprobante.numero}</div>
                   <div><strong>Fecha de Emisión:</strong> {fechaVenta}</div>
+                  <div style={{ marginTop: '10px' }}></div>
+                  <div><strong>Ingresos Brutos:</strong> {comercioData?.ingresos_brutos || 'N/A'}</div>
+                  <div><strong>Condición frente al IVA:</strong> Responsable Inscripto</div>
+                  <div><strong>Fecha de Inicio de Actividades:</strong> {comercioData?.fecha_inicio_actividad ? format(new Date(comercioData.fecha_inicio_actividad), 'dd/MM/yyyy') : 'N/A'}</div>
                 </div>
               </div>
             </div>
