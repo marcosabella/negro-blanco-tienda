@@ -496,25 +496,21 @@ export const FacturaImpresion = ({ venta }: FacturaImpresionProps) => {
             <div className="cliente-section">
               <div className="cliente-row">
                 <div className="cliente-field">
-                  <strong>CUIT:</strong> {venta.cliente?.apellido || 'N/A'}
+                  <strong>CUIT:</strong> N/A
                 </div>
-              </div>
-              <div className="cliente-row">
                 <div className="cliente-field">
                   <strong>Apellido y Nombre / Razón Social:</strong> {venta.cliente_nombre}
                 </div>
               </div>
               <div className="cliente-row">
                 <div className="cliente-field">
-                  <strong>Condición frente al IVA:</strong> Consumidor Final
+                  <strong>Domicilio:</strong> N/A
                 </div>
               </div>
               <div className="cliente-row">
                 <div className="cliente-field">
-                  <strong>Domicilio:</strong> {venta.cliente?.nombre || 'N/A'}
+                  <strong>Condición frente al IVA:</strong> Consumidor Final
                 </div>
-              </div>
-              <div className="cliente-row">
                 <div className="cliente-field">
                   <strong>Condición de venta:</strong> {getTipoPagoLabel()}
                 </div>
